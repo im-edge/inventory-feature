@@ -1,0 +1,68 @@
+#!/usr/bin/php
+<?php
+
+use GetOpt\ArgumentException;
+use GetOpt\GetOpt;
+use GetOpt\Operand;
+use GetOpt\Option;
+use gipfl\Cli\Process;
+use IMEdge\InventoryFeature\ApplicationFeature;
+use IMEdge\InventoryFeature\DbStreamReader;
+use IMEdge\InventoryFeature\DbStreamWriter;
+use IMEdge\Log\LogHelper;
+use IMEdge\Log\ProcessStdoutLogger;
+use Ramsey\Uuid\Uuid;
+use Revolt\EventLoop;
+
+require_once dirname(__DIR__, 3) . '/icinga-datanode/vendor/autoload.php'; // TODO??
+require_once dirname(__DIR__) . '/vendor/autoload.php';
+error_reporting(E_ALL | E_STRICT);
+
+Process::setTitle(ApplicationFeature::PROCESS_NAME . '::db-streamer');
+$options = new GetOpt(null, [GetOpt::SETTING_STRICT_OPERANDS => true]);
+$options->addOperand(Operand::create('datanode')->required());
+$options->addOperand(Operand::create('redisSocket')->required());
+$options->addOptions([
+    Option::create('v', 'verbose')->setDescription('Enable verbose logging'),
+    Option::create('d', 'debug')->setDescription('Enable debug logging')
+]);
+
+try {
+    $options->process();
+} catch (ArgumentException $e) {
+    echo $options->getHelpText();
+    exit(1);
+}
+$logger = ProcessStdoutLogger::create(ApplicationFeature::LOG_NAME . '/db-streamer', $options);
+LogHelper::logEventloopErrors($logger, 'Uncaught error (inventory-stream): ');
+
+try {
+    $datanodeUuid = Uuid::fromString($options->getOperand('datanode'));
+    $redisSocket = $options->getOperand('redisSocket');
+    Process::setTitle(ApplicationFeature::PROCESS_NAME);
+} catch (Throwable $e) {
+    echo $e->getMessage() . "\n";
+    echo $e->getTraceAsString();
+    exit(1);
+}
+try {
+    $settings = new \gipfl\DataType\Settings(); // TODO!!!
+    posix_setsid(); // TODO: Should be done by the parent for us
+    $writer = new DbStreamWriter(
+        $logger,
+        $datanodeUuid,
+        $settings->getRequired('dsn'),
+        $settings->getRequired('username'),
+        $settings->getRequired('password')
+    );
+    $reader = new DbStreamReader($redisSocket, $writer, $datanodeUuid, $logger);
+    $reader->start();
+    EventLoop::run();
+} catch (Throwable $e) {
+    echo $e->getMessage() . ' (' . $e->getFile() . ':' . $e->getLine() . "\n";
+    $logger->error($e->getMessage() . ' (' . $e->getFile() . ':' . $e->getLine());
+    $logger->error('Shutting down Inventory Streamer right now');
+    EventLoop::delay(0.1, function () {
+        exit(1);
+    });
+}
