@@ -18,6 +18,7 @@ use React\Promise\PromiseInterface;
 use Revolt\EventLoop;
 
 use function Amp\async;
+use function React\Async\await;
 
 class InventoryRunner implements CentralInventory
 {
@@ -87,14 +88,15 @@ class InventoryRunner implements CentralInventory
     /**
      * @deprecated
      */
-    public function shipBulkActions(array $actions): PromiseInterface
+    public function shipBulkActions(array $actions): void
     {
         $deferred = new Deferred();
         if (empty($actions)) {
             EventLoop::queue(function () use ($deferred) {
                 $deferred->resolve(null);
             });
-            return $deferred->promise();
+            await($deferred->promise());
+            return;
         }
         $start = microtime(true);
         $transaction = $this->db->transaction();
@@ -203,7 +205,7 @@ class InventoryRunner implements CentralInventory
             }
         }
 
-        return $deferred->promise();
+        await($deferred->promise());
     }
 
     public function getCredentials(): array

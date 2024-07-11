@@ -17,9 +17,8 @@ class RpcContextRemoteInventory
 
     /**
      * @param array $actions
-     * @return PromiseInterface
      */
-    public function shipBulkActionsRequest(array $actions): PromiseInterface
+    public function shipBulkActionsRequest(array $actions): bool
     {
         $this->logger->notice(sprintf('Got %d remote bulk actions', count($actions)));
         try {
@@ -29,7 +28,8 @@ class RpcContextRemoteInventory
                 }
             }
 
-            return $this->runner->shipBulkActions($actions);
+            $this->runner->shipBulkActions($actions);
+            return true;
         } catch (\Throwable $e) {
             $this->logger->error($e->getMessage());
             throw new \Exception($e->getMessage());
