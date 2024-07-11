@@ -5,12 +5,14 @@ use GetOpt\ArgumentException;
 use GetOpt\GetOpt;
 use GetOpt\Operand;
 use GetOpt\Option;
-use gipfl\Cli\Process;
+use gipfl\DataType\Settings;
+use gipfl\Json\JsonString;
 use IMEdge\InventoryFeature\ApplicationFeature;
 use IMEdge\InventoryFeature\DbStreamReader;
 use IMEdge\InventoryFeature\DbStreamWriter;
 use IMEdge\Log\LogHelper;
 use IMEdge\Log\ProcessStdoutLogger;
+use IMEdge\SimpleDaemon\Process;
 use Ramsey\Uuid\Uuid;
 use Revolt\EventLoop;
 
@@ -46,7 +48,12 @@ try {
     exit(1);
 }
 try {
-    $settings = new \gipfl\DataType\Settings(); // TODO!!!
+    $homeDir = $home ??= $_ENV['HOME'] ?? $_SERVER['HOME'];
+    if ($homeDir === null) {
+        throw new RuntimeException('Unable to determine my HOME directory');
+    }
+    $settingsFile = "$homeDir/.imedge-node/feature/inventory.json"; // TODO: get from parent or via API
+    $settings = Settings::fromSerialization(JsonString::decode(file_get_contents($settingsFile)));
     posix_setsid(); // TODO: Should be done by the parent for us
     $writer = new DbStreamWriter(
         $logger,
@@ -62,7 +69,5 @@ try {
     echo $e->getMessage() . ' (' . $e->getFile() . ':' . $e->getLine() . "\n";
     $logger->error($e->getMessage() . ' (' . $e->getFile() . ':' . $e->getLine());
     $logger->error('Shutting down Inventory Streamer right now');
-    EventLoop::delay(0.1, function () {
-        exit(1);
-    });
+    EventLoop::delay(0.1, fn () => exit(1));
 }
