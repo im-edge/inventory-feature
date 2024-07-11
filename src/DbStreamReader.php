@@ -6,6 +6,7 @@ use Amp\Redis\Connection\RedisConnectionException;
 use Amp\Redis\Protocol\QueryException;
 use Amp\Redis\RedisClient;
 use Exception;
+use IMEdge\Async\Retry;
 use Psr\Log\LoggerInterface;
 use Ramsey\Uuid\UuidInterface;
 use Revolt\EventLoop;
