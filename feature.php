@@ -10,8 +10,9 @@ use Revolt\EventLoop;
 require __DIR__ . '/vendor/autoload.php';
 /** @var Feature $this */
 $settings = $this->settings;
+
 $db = new DbConnection(
-    $settings->getRequired('dsn'),
+    preg_replace('#^mysql:#', '', $settings->getRequired('dsn')),
     $settings->getRequired('username'),
     $settings->getRequired('password')
 );
