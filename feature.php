@@ -1,11 +1,10 @@
 <?php
 
 use IMEdge\Node\Feature;
-use IcingaFeature\Inventory\ConnectionSubscriber;
-use IcingaFeature\Inventory\Db\DbConnection;
-use IcingaFeature\Inventory\InventoryRunner;
-use IcingaFeature\Inventory\RpcContextInventory;
-use IcingaFeature\Inventory\RpcSubscriber;
+use IMEdge\InventoryFeature\ConnectionSubscriber;
+use IMEdge\InventoryFeature\Db\DbConnection;
+use IMEdge\InventoryFeature\InventoryRunner;
+use IMEdge\InventoryFeature\RpcSubscriber;
 use Revolt\EventLoop;
 
 require __DIR__ . '/vendor/autoload.php';
