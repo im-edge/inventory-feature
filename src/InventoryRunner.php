@@ -14,7 +14,6 @@ use IMEdge\Node\Feature;
 use Psr\Log\LoggerInterface;
 use Ramsey\Uuid\UuidInterface;
 use React\Promise\Deferred;
-use React\Promise\PromiseInterface;
 use Revolt\EventLoop;
 
 use function Amp\async;

@@ -3,10 +3,12 @@
 namespace IMEdge\InventoryFeature;
 
 use IMEdge\Inventory\InventoryAction;
+use IMEdge\RpcApi\ApiMethod;
+use IMEdge\RpcApi\ApiNamespace;
 use Psr\Log\LoggerInterface;
-use React\Promise\PromiseInterface;
 
-class RpcContextRemoteInventory
+#[ApiNamespace('inventory')]
+class RemoteInventoryApi
 {
     public function __construct(
         protected readonly InventoryRunner $runner,
@@ -15,13 +17,12 @@ class RpcContextRemoteInventory
         $this->logger->notice('RPC Context remote inventory is ready');
     }
 
-    /**
-     * @param array $actions
-     */
+    #[ApiMethod]
     public function shipBulkActionsRequest(array $actions): bool
     {
         $this->logger->notice(sprintf('Got %d remote bulk actions', count($actions)));
         try {
+            // TODO: ActionList as type?
             foreach ($actions as &$action) {
                 if (! $action instanceof InventoryAction) {
                     $action = InventoryAction::fromSerialization($action);
