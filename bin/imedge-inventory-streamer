@@ -52,7 +52,7 @@ try {
     if ($homeDir === null) {
         throw new RuntimeException('Unable to determine my HOME directory');
     }
-    $settingsFile = "$homeDir/.imedge-node/feature/inventory.json"; // TODO: get from parent or via API
+    $settingsFile = "$homeDir/.imedge/feature/inventory.json"; // TODO: get from parent or via API
     $settings = Settings::fromSerialization(JsonString::decode(file_get_contents($settingsFile)));
     posix_setsid(); // TODO: Should be done by the parent for us
     $writer = new DbStreamWriter(
