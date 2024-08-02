@@ -32,39 +32,31 @@ class InventoryRunner implements CentralInventory
 
     public function run(): void
     {
-        EventLoop::delay(0.5, $this->shipLocalSnmpCredentials(...));
+        EventLoop::delay(1.5, $this->shipLocalSnmpCredentials(...));
     }
 
     public function shipLocalSnmpCredentials(): void
     {
-        if ($rpcHandler = $this->getLocalSnmpRpcHandler()) {
+        // TODO: redesign this
+        if ($api = $this->getLocalSnmpApi()) {
             $this->logger->notice('InventoryRunner found SNMP when starting up, loading credentials');
             $localCredentials = CredentialLoader::fetchAllForDataNode($this->feature->nodeIdentifier->uuid, $this->db);
-            $rpcHandler->setCredentialsRequest($localCredentials)->catch(function (\Exception $e) {
+            try {
+                $api->setCredentials($localCredentials);
+            } catch (\Exception $e) {
                 $this->logger->error('Sending SNMP credentials failed (InventoryRunner): ' . $e->getMessage());
-            });
-
+            }
         } else {
             $this->logger->notice('InventoryRunner found no SNMP when starting up');
         }
     }
 
-    protected function hasLocalSnmpFeatureEnabled(): bool
+    protected function getLocalSnmpApi(): ?object
     {
-        foreach ($this->feature->getRegisteredRpcNamespaces() as $registeredRpcNamespace => $rpcHandler) {
-            if ($registeredRpcNamespace === 'snmp' && method_exists($rpcHandler, 'setCredentialsRequest')) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    protected function getLocalSnmpRpcHandler(): ?object
-    {
-        foreach ($this->feature->getRegisteredRpcNamespaces() as $registeredRpcNamespace => $rpcHandler) {
-            if ($registeredRpcNamespace === 'snmp' && method_exists($rpcHandler, 'setCredentialsRequest')) {
-                return $rpcHandler;
+        foreach ($this->feature->getRegisteredRpcApis() as $api) {
+            // TODO: Check reflection -> ApiNamespace
+            if (method_exists($api, 'setCredentialsRequest')) {
+                return $api;
             }
         }
 
