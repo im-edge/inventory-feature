@@ -10,6 +10,7 @@ use IMEdge\Inventory\InventoryActionType;
 use IMEdge\InventoryFeature\Db\DbConnection;
 use IMEdge\InventoryFeature\Db\DbQueryHelper;
 use IMEdge\Inventory\NodeIdentifier;
+use IMEdge\Node\Application;
 use IMEdge\Node\Feature;
 use Psr\Log\LoggerInterface;
 use Ramsey\Uuid\UuidInterface;
@@ -33,6 +34,21 @@ class InventoryRunner implements CentralInventory
     public function run(): void
     {
         EventLoop::delay(1.5, $this->shipLocalSnmpCredentials(...));
+        $this->registerNode();
+    }
+
+    protected function registerNode(): void
+    {
+        $binaryUuid = $this->feature->nodeIdentifier->uuid->getBytes();
+        $current = $this->db->fetchRow('SELECT uuid FROM datanode WHERE uuid = ?', [$binaryUuid]);
+        if ($current === null) {
+            $this->db->insert('datanode', [
+                'uuid'  => $binaryUuid,
+                'label' => $this->feature->nodeIdentifier->name,
+                'db_stream_position' => '0-0',
+            ]);
+            $this->logger->notice(sprintf('%s has been registered in the database', Application::PROCESS_NAME));
+        }
     }
 
     public function shipLocalSnmpCredentials(): void
