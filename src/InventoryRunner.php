@@ -120,28 +120,6 @@ class InventoryRunner implements CentralInventory
                     }
                     $values = $action->getAllDbValues();
                     $keyProperties = $action->getDbKeyProperties();
-
-                    // hard-coded fixes for old structures
-                    if ($table === 'rrd_archive') {
-                        if (isset($values['uuid'])) {
-                            $values['rrd_archive_set_uuid'] = $values['uuid'];
-                        }
-                        if (isset($keyProperties['uuid'])) {
-                            $keyProperties['rrd_archive_set_uuid'] = $keyProperties['uuid'];
-                        }
-                    }
-                    if ($table === 'rrd_file') {
-                        unset($values['tags']);
-                        if (isset($values['filename'])) {
-                            $values['filename'] = preg_replace(
-                                '#/rrd/data/lab1/rrdcached/data/#',
-                                '',
-                                $values['filename']
-                            );
-                        }
-                    }
-                    // end of fixes
-
                     try {
                         $queries[] = match ($action->action) {
                             InventoryActionType::CREATE => fn () => $db->insert($table, $values, $this->logger),
