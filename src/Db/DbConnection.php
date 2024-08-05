@@ -39,6 +39,28 @@ class DbConnection
         return $name;
     }
 
+    protected static function quoteTableName(string $name): string
+    {
+        return $name;
+    }
+
+    public function insert(string $table, $properties): void
+    {
+        $columns = [];
+        $placeholders = [];
+        foreach (array_keys($properties) as $key) {
+            $columns[] = self::quoteColumnName($key);
+            $placeholders[] = '?';
+        }
+        $statement = $this->pool->prepare(sprintf(
+            'INSERT INTO %s (%s) VALUES (%s)',
+            self::quoteTableName($table),
+            implode(', ', $columns),
+            implode(', ', $placeholders)
+        ));
+        $statement->execute(array_values($properties));
+    }
+
     public function fetchAll($sql, $params = []): array
     {
         $statement = $this->pool->prepare($sql);
@@ -48,6 +70,17 @@ class DbConnection
         }
 
         return $result;
+    }
+
+    public function fetchRow($sql, $params = [])
+    {
+        $statement = $this->pool->prepare($sql);
+        foreach ($statement->execute($params) as $row) {
+            $statement->close();
+            return $row;
+        }
+
+        return null;
     }
 
     public function fetchPairs($sql, $params = []): array
