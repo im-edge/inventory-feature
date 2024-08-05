@@ -175,7 +175,6 @@ class DbStreamWriter
         $table = $action->tableName;
         $values = $action->getAllDbValues();
         $keyProperties = $action->getDbKeyProperties();
-        self::applyHardCodedSchemaFixes($table, $keyProperties, $values);
         $result = match ($action->action) {
             InventoryActionType::CREATE => $this->queryHelper->insert(
                 $table,
@@ -223,49 +222,6 @@ class DbStreamWriter
         foreach ($values as &$value) { // Fix for erroneous serialization
             if (is_object($value) && isset($value->oid)) {
                 $value = $value->oid;
-            }
-        }
-    }
-
-    protected static function applyHardCodedSchemaFixes(&$table, &$keyProperties, &$values): void
-    {
-        if ($table === 'network_interface_status') {
-            $table = 'snmp_interface_status';
-        }
-        if ($table === 'snmp_interface_status') {
-            if (isset($keyProperties['device_uuid'])) {
-                $keyProperties['system_uuid'] = $keyProperties['device_uuid'];
-                unset($keyProperties['device_uuid']);
-                $values['system_uuid'] = $values['device_uuid'];
-                unset($values['device_uuid']);
-            }
-            /*
-            var_dump($keyProperties);
-            var_dump($values);
-            foreach ($keyProperties as $idx => $property) {
-                if ($property === 'device_uuid') {
-                    $keyProperties[$idx] = 'system_uuid';
-                }
-            }*/
-            // notice: DELETE FROM snmp_interface_status WHERE device_uuid = ? AND if_index IS NULL
-        }
-        // hard-coded fixes for old structures
-        if ($table === 'rrd_archive') {
-            if (isset($values['uuid'])) {
-                $values['rrd_archive_set_uuid'] = $values['uuid'];
-            }
-            if (isset($keyProperties['uuid'])) {
-                $keyProperties['rrd_archive_set_uuid'] = $keyProperties['uuid'];
-            }
-        }
-        if ($table === 'rrd_file') {
-            unset($values['tags']);
-            if (isset($values['filename'])) {
-                $values['filename'] = preg_replace(
-                    '#/rrd/data/lab1/rrdcached/data/#',
-                    '',
-                    $values['filename']
-                );
             }
         }
     }
