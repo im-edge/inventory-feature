@@ -25,7 +25,7 @@ class InventoryRunner implements CentralInventory
     protected bool $logActivities = true;
 
     public function __construct(
-        protected readonly Feature $feature,
+        public readonly Feature $feature,
         protected readonly DbConnection $db,
         protected readonly LoggerInterface $logger,
     ) {
@@ -34,17 +34,17 @@ class InventoryRunner implements CentralInventory
     public function run(): void
     {
         EventLoop::delay(1.5, $this->shipLocalSnmpCredentials(...));
-        $this->registerNode();
+        $this->registerNode($this->feature->nodeIdentifier->uuid, $this->feature->nodeIdentifier->name);
     }
 
-    protected function registerNode(): void
+    public function registerNode(UuidInterface $uuid, string $name): void
     {
-        $binaryUuid = $this->feature->nodeIdentifier->uuid->getBytes();
+        $binaryUuid = $uuid->getBytes();
         $current = $this->db->fetchRow('SELECT uuid FROM datanode WHERE uuid = ?', [$binaryUuid]);
         if ($current === null) {
             $this->db->insert('datanode', [
                 'uuid'  => $binaryUuid,
-                'label' => $this->feature->nodeIdentifier->name,
+                'label' => $name,
                 'db_stream_position' => '0-0',
             ]);
             $this->logger->notice(sprintf('%s has been registered in the database', Application::PROCESS_NAME));
