@@ -15,7 +15,8 @@ class RpcSubscriber implements RpcRegistrationSubscriberInterface
         protected NodeIdentifier $nodeIdentifier,
         protected DbConnection $db,
         protected LoggerInterface $logger,
-    ) {}
+    ) {
+    }
 
     public function registerRpcNamespace(string $namespace, object $handler): void
     {
