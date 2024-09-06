@@ -20,6 +20,7 @@ class RemoteInventoryApi
     #[ApiMethod]
     public function shipBulkActionsRequest(array $actions): bool
     {
+        throw new \RuntimeException('remote shipBulkActions is no longer supported');
         $this->logger->notice(sprintf('Got %d remote bulk actions', count($actions)));
         try {
             // TODO: ActionList as type?
