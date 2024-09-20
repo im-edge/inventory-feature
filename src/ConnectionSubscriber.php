@@ -4,7 +4,6 @@ namespace IMEdge\InventoryFeature;
 
 use Amp\ByteStream\ClosedException;
 use Amp\Redis\Protocol\QueryException;
-use Amp\Redis\Protocol\RedisError;
 use Exception;
 use IMEdge\InventoryFeature\Db\DbConnection;
 use IMEdge\Inventory\NodeIdentifier;

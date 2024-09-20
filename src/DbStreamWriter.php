@@ -2,11 +2,11 @@
 
 namespace IMEdge\InventoryFeature;
 
-use gipfl\Json\JsonString;
 use IMEdge\Async\Retry;
 use IMEdge\Inventory\InventoryAction;
 use IMEdge\Inventory\InventoryActionType;
 use IMEdge\InventoryFeature\Db\PdoQueryHelper;
+use IMEdge\Json\JsonString;
 use IMEdge\RedisTables\RedisTables;
 use IMEdge\RedisUtils\RedisResult;
 use PDO;

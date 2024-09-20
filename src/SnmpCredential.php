@@ -2,7 +2,7 @@
 
 namespace IMEdge\InventoryFeature;
 
-use gipfl\Json\JsonSerialization;
+use IMEdge\Json\JsonSerialization;
 use Ramsey\Uuid\Uuid;
 
 class SnmpCredential implements JsonSerialization

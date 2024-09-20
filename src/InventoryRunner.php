@@ -3,15 +3,15 @@
 namespace IMEdge\InventoryFeature;
 
 use Amp\Future;
-use gipfl\Json\JsonException;
-use gipfl\Json\JsonString;
 use IMEdge\Inventory\CentralInventory;
 use IMEdge\Inventory\InventoryActionType;
 use IMEdge\InventoryFeature\Db\DbConnection;
 use IMEdge\InventoryFeature\Db\DbQueryHelper;
 use IMEdge\Inventory\NodeIdentifier;
+use IMEDge\Json\JsonString;
 use IMEdge\Node\Application;
 use IMEdge\Node\Feature;
+use JsonException;
 use Psr\Log\LoggerInterface;
 use Ramsey\Uuid\UuidInterface;
 use React\Promise\Deferred;

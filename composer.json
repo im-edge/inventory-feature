@@ -18,6 +18,7 @@
     "ext-mbstring": "*",
     "ext-pdo": "*",
     "ext-posix": "*",
-    "gipfl/log": ">=0.7"
+    "gipfl/log": ">=0.7",
+    "imedge/db-migration": "^0.1.0"
   }
 }
