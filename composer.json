@@ -18,7 +18,7 @@
     "ext-mbstring": "*",
     "ext-pdo": "*",
     "ext-posix": "*",
-    "imedge/log": ">=0.7",
+    "imedge/log": ">=0.7.1",
     "imedge/db-migration": ">=0.1"
   }
 }
