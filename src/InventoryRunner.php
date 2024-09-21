@@ -151,6 +151,7 @@ class InventoryRunner implements CentralInventory
                 });
                 // TODO: $this->logAction?
             }
+            assert(isset($action));
             $futures[] = async(function () use ($db, $action) {
                 $db->update('datanode_table_sync', [
                     'current_position' => $action->streamPosition,
