@@ -36,6 +36,16 @@ final class DbStreamReader
 
     public function start(): void
     {
+        $this->stopping = false;
+        $this->launch();
+    }
+
+    protected function launch(): void
+    {
+        if ($this->stopping) {
+            return;
+        }
+
         Retry::forever(function () {
             $this->redis->execute('CLIENT', 'SETNAME', self::NAME);
             $this->initializeReadParams();
@@ -53,6 +63,9 @@ final class DbStreamReader
 
     protected function readStreams(): void
     {
+        if ($this->stopping) {
+            return;
+        }
         $params = null;
         try {
             $positions = $this->writer->getCurrentStreamPositions();
@@ -67,19 +80,13 @@ final class DbStreamReader
                 if ($streams) {
                     $this->writer->processRedisStreamResults($streams);
                 }
-                if (! $this->stopping) {
-                    EventLoop::queue($this->readStreams(...));
-                }
+                EventLoop::queue($this->readStreams(...));
             } else {
                 // DB not ready
-                if (! $this->stopping) {
-                    EventLoop::delay(1, $this->readStreams(...));
-                }
+                EventLoop::delay(1, $this->readStreams(...));
             }
         } catch (RedisConnectionException) {
-            if (!$this->stopping) {
-                $this->start();
-            }
+            $this->start();
         } catch (QueryException $e) {
             // e.g.: LOADING Redis is loading the dataset in memory
             $this->logger->error(
@@ -87,13 +94,8 @@ final class DbStreamReader
                 . ($params ? ' (' . implode(' ', $params) . ')' : '')
                 . $e->getMessage()
             );
-            if (!$this->stopping) {
-                $this->start();
-            }
+            $this->start();
         } catch (Exception $e) {
-            if ($this->stopping) {
-                return;
-            }
             if (! $this->redisFailing) {
                 $this->redisFailing = true;
                 $this->logger->error(sprintf(
