@@ -11,6 +11,7 @@ use IMEdge\JsonRpc\JsonRpcConnection;
 use IMEdge\Node\Network\ConnectionSubscriberInterface;
 use IMEdge\Node\Rpc\ApiRunner;
 use IMEdge\Node\Rpc\RpcPeerType;
+use IMEdge\RedisTables\RedisTables;
 use IMEdge\RedisUtils\RedisResult;
 use Psr\Log\LoggerInterface;
 use Ramsey\Uuid\Uuid;
@@ -78,7 +79,7 @@ class ConnectionSubscriber implements ConnectionSubscriberInterface
             if (isset($methods['node.streamDbChanges'])) {
                 EventLoop::delay(1, function () use ($connection, $uuid) {
                     $redis = $this->runner->feature->services->getRedisClient('IMEdge/dbStreamReplication');
-                    $streamName = 'db-stream-' . $uuid->toString();
+                    $streamName = RedisTables::STREAM_NAME_PREFIX . $uuid->toString();
                     try {
                         $currentPosition = RedisResult::toHash(
                             $redis->execute('XINFO', 'STREAM', $streamName)
