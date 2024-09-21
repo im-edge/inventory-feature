@@ -16,6 +16,7 @@ use function Amp\Redis\createRedisClient;
 final class DbStreamReader
 {
     protected const NAME = 'IMEdge/DbStreamReader';
+    protected const STORE_APP = 'Redis/ValKey';
     protected const DELAY_ON_ERROR = 15;
 
     protected ?RedisClient $redis = null;
@@ -38,9 +39,9 @@ final class DbStreamReader
         Retry::forever(function () {
             $this->redis->execute('CLIENT', 'SETNAME', self::NAME);
             $this->initializeReadParams();
-            $this->logger->notice(self::NAME . ': Redis/ValKey is ready');
+            $this->logger->notice(sprintf( '%s: %s is ready', self::NAME, self::STORE_APP));
             $this->readStreams();
-        }, 'Redis/ValKey', 10, 1, 30, $this->logger);
+        }, self::STORE_APP, 10, 1, 30, $this->logger);
     }
 
     protected function initializeReadParams(): void
@@ -60,7 +61,7 @@ final class DbStreamReader
                 // $this->logger->debug(implode(' ', $params));
                 $streams = $this->redis->execute(...$params);
                 if ($this->redisFailing) {
-                    $this->logger->notice('Redis/ValKey reconnected');
+                    $this->logger->notice(self::STORE_APP . ' reconnected');
                     $this->redisFailing = false;
                 }
                 if ($streams) {
@@ -82,7 +83,9 @@ final class DbStreamReader
         } catch (QueryException $e) {
             // e.g.: LOADING Redis is loading the dataset in memory
             $this->logger->error(
-                'Redis/ValKey query failed' . ($params ? ' (' . implode(' ', $params) . ')' : '') . $e->getMessage()
+                self::STORE_APP . ' query failed'
+                . ($params ? ' (' . implode(' ', $params) . ')' : '')
+                . $e->getMessage()
             );
             if (!$this->stopping) {
                 $this->start();
@@ -94,7 +97,8 @@ final class DbStreamReader
             if (! $this->redisFailing) {
                 $this->redisFailing = true;
                 $this->logger->error(sprintf(
-                    'Reading next Redis/ValKey stream batch failed with %s, retrying every %ds: %s',
+                    'Reading next %s stream batch failed with %s, retrying every %ds: %s',
+                    self::STORE_APP,
                     get_class($e),
                     self::DELAY_ON_ERROR,
                     $e->getMessage()
