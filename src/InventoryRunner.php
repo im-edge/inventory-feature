@@ -193,12 +193,4 @@ class InventoryRunner implements CentralInventory
 
         await($deferred->promise());
     }
-
-    public function loadTableSyncPositions(NodeIdentifier $nodeIdentifier): array
-    {
-        return $this->db->fetchPairs(
-            'SELECT table_name, current_position FROM datanode_table_sync WHERE datanode_uuid = ?',
-            [$nodeIdentifier->uuid->getBytes()]
-        );
-    }
 }
