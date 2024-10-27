@@ -194,12 +194,6 @@ class InventoryRunner implements CentralInventory
         await($deferred->promise());
     }
 
-    public function getCredentials(): array
-    {
-        // TODO: Implement getCredentials() method.
-        return [];
-    }
-
     public function loadTableSyncPositions(NodeIdentifier $nodeIdentifier): array
     {
         return $this->db->fetchPairs(
