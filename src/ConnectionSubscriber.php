@@ -46,7 +46,6 @@ class ConnectionSubscriber implements ConnectionSubscriberInterface
             $connection->requestHandler = new ApiRunner($this->nodeIdentifier->uuid->toString());
             // $connection->logger = $this->logger; We did so, but this feels wrong
         }
-        $connection->requestHandler->addApi(new RemoteInventoryApi($this->runner, $this->logger));
         try {
             $uuid = Uuid::fromString($hexUuid);
             try {

@@ -1,6 +1,5 @@
 <?php
 
-use IMEdge\InventoryFeature\RemoteInventoryApi;
 use IMEdge\Node\Feature;
 use IMEdge\InventoryFeature\ConnectionSubscriber;
 use IMEdge\InventoryFeature\Db\DbConnection;
@@ -20,7 +19,6 @@ $db = new DbConnection(
 
 $runner = new InventoryRunner($this, $db, $this->logger);
 EventLoop::queue($runner->run(...)); // Order matters
-$this->registerRpcApi(new RemoteInventoryApi($runner, $this->logger));
 $this->subscribeRpcRegistrations(new RpcSubscriber($this->nodeIdentifier, $db, $this->logger));
 $this->subscribeConnections(new ConnectionSubscriber($runner, $this->nodeIdentifier, $db, $this->logger));
 EventLoop::delay(0.2, function () use ($runner) {
