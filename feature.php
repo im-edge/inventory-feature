@@ -13,7 +13,6 @@ use IMEdge\InventoryFeature\InventoryRunner;
 use IMEdge\InventoryFeature\RpcSubscriber;
 use Revolt\EventLoop;
 
-require __DIR__ . '/vendor/autoload.php';
 $settings = $this->settings;
 
 $db = new DbConnection(
