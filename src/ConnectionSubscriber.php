@@ -39,7 +39,7 @@ class ConnectionSubscriber implements ConnectionSubscriberInterface
         }
         $this->gotPeers[$hexUuid] = $connection;
 
-        $this->logger->info('OOOO inventory got ' . $hexUuid);
+        $this->logger->info('Inventory activates connection to ' . $hexUuid);
         // DB -> find related credentials, ship them
         // DB -> find discovery jobs, ship them
         if ($connection->requestHandler === null) {
@@ -50,13 +50,20 @@ class ConnectionSubscriber implements ConnectionSubscriberInterface
             $uuid = Uuid::fromString($hexUuid);
             try {
                 $name = $connection->request('node.getName');
-                $methods = (array) $connection->request('node.getAvailableMethods');
-                if (! str_contains($name, '/')) { // Not so nice way to skip sub-processes for now
-                    $this->runner->registerNode($uuid, $name);
-                }
             } catch (Exception $e) {
-                $this->logger->error('Getting feature list failed: ' . $e->getMessage());
+                // $this->logger->error('Getting node name failed, not a full node: ' . $e->getMessage());
                 return;
+            }
+            if (! str_contains($name, '/')) { // Not so nice way to skip sub-processes for now
+                try {
+                    $this->logger->error('Going on: ' . $name);
+                    $methods = (array)$connection->request('node.getAvailableMethods');
+                    $this->logger->error('Got methods, registering');
+                    $this->runner->registerNode($uuid, $name);
+                } catch (Exception $e) {
+                    $this->logger->error("Getting available methods from $hexUuid failed: " . $e->getMessage());
+                    return;
+                }
             }
 
             if (isset($methods['snmp.setCredentials'])) {
