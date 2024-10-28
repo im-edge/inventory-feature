@@ -1,5 +1,11 @@
 <?php
 
+/**
+ * This is an IMEdge Node feature
+ *
+ * @var Feature $this
+ */
+
 use IMEdge\Node\Feature;
 use IMEdge\InventoryFeature\ConnectionSubscriber;
 use IMEdge\InventoryFeature\Db\DbConnection;
@@ -8,7 +14,6 @@ use IMEdge\InventoryFeature\RpcSubscriber;
 use Revolt\EventLoop;
 
 require __DIR__ . '/vendor/autoload.php';
-/** @var Feature $this */
 $settings = $this->settings;
 
 $db = new DbConnection(
