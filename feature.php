@@ -26,6 +26,3 @@ $runner = new InventoryRunner($this, $db, $this->logger);
 EventLoop::queue($runner->run(...)); // Order matters
 $this->subscribeRpcRegistrations(new RpcSubscriber($this->nodeIdentifier, $db, $this->logger));
 $this->subscribeConnections(new ConnectionSubscriber($runner, $this->nodeIdentifier, $db, $this->logger));
-EventLoop::delay(0.2, function () use ($runner) {
-    $this->registerInventory($runner);
-});

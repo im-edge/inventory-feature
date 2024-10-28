@@ -2,25 +2,15 @@
 
 namespace IMEdge\InventoryFeature;
 
-use Amp\Future;
-use IMEdge\Inventory\CentralInventory;
-use IMEdge\Inventory\InventoryActionType;
 use IMEdge\InventoryFeature\Db\DbConnection;
-use IMEdge\InventoryFeature\Db\DbQueryHelper;
-use IMEdge\Inventory\NodeIdentifier;
-use IMEDge\Json\JsonString;
 use IMEdge\Node\Application;
 use IMEdge\Node\Feature;
-use JsonException;
 use Psr\Log\LoggerInterface;
 use Ramsey\Uuid\UuidInterface;
-use React\Promise\Deferred;
 use Revolt\EventLoop;
 
-use function Amp\async;
-use function React\Async\await;
 
-class InventoryRunner implements CentralInventory
+class InventoryRunner
 {
     protected bool $logActivities = true;
 
@@ -77,120 +67,5 @@ class InventoryRunner implements CentralInventory
         }
 
         return null;
-    }
-
-    /**
-     * @deprecated
-     */
-    public function setSyncError(UuidInterface $nodeUuid, string $table, \Throwable $e): void
-    {
-        $db = new DbQueryHelper($this->db->getPool(), $this->logger);
-        $db->update(
-            $table,
-            ['current_error' => $e->getMessage()],
-            ['datanode_uuid' => $nodeUuid->getBytes()]
-        );
-    }
-
-    /**
-     * @deprecated
-     */
-    public function shipBulkActions(array $actions): void
-    {
-        $deferred = new Deferred();
-        if (empty($actions)) {
-            EventLoop::queue(function () use ($deferred) {
-                $deferred->resolve(null);
-            });
-            await($deferred->promise());
-            return;
-        }
-        $start = microtime(true);
-        $transaction = $this->db->transaction();
-        $db = new DbQueryHelper($transaction, $this->logger);
-        try {
-            $queries = [];
-            $futures = [];
-            $formerTable = null;
-            foreach ($actions as $action) {
-                $futures[] = async(function () use (&$queries, $action, $db, &$formerTable) {
-                    $table = $action->tableName;
-                    if ($formerTable && ($formerTable !== $table)) {
-
-                    }
-                    $values = $action->getAllDbValues();
-                    $keyProperties = $action->getDbKeyProperties();
-                    try {
-                        $queries[] = match ($action->action) {
-                            InventoryActionType::CREATE => fn () => $db->insert($table, $values, $this->logger),
-                            InventoryActionType::UPDATE => fn () => $db->update($table, $action->getDbValuesForUpdate(), $keyProperties),
-                            InventoryActionType::DELETE => fn () => $db->delete($table, $keyProperties),
-                        };
-                        if ($this->logActivities) {
-                            $queries[] = $db->insert('datanode_table_action_history', [
-                                'datanode_uuid' => $action->sourceNode->getBytes(),
-                                'table_name' => $table,
-                                'stream_position' => $action->streamPosition,
-                                'action' => $action->action->value,
-                                'key_properties' => JsonString::encode($action->keyProperties),
-                                'sent_values' => JsonString::encode($action->values),
-                            ]);
-                        }
-                    } catch (JsonException $e) {
-                        $this->logger->error(
-                            "shipBulkActions: " . $e->getMessage() . ', encoding failed for '. print_r($action, 1)
-                        );
-                    } catch (\Throwable $e) {
-                        if (str_contains($e->getMessage(), 'Duplicate entry')) {
-                            $this->logger->error('Ignoring duplicate key error: ' . $e->getMessage());
-                        } else {
-                            $this->logger->error('WTF: ' . $e->getMessage());
-                            throw $e;
-                        }
-                    }
-                });
-                // TODO: $this->logAction?
-            }
-            assert(isset($action));
-            $futures[] = async(function () use ($db, $action) {
-                $db->update('datanode_table_sync', [
-                    'current_position' => $action->streamPosition,
-                    'current_error' => null,
-                ], [
-                    'datanode_uuid' => $action->sourceNode->getBytes(),
-                    'table_name'    => $action->tableName, // Hint: works here, but... not so nice
-                ]);
-            });
-            Future\awaitAll($futures);
-            $this->logger->notice(sprintf(
-                'Prepared %d queries in %.02fms',
-                count($queries),
-                (microtime(true) - $start) * 1000
-            ));
-            $commit = async(function () use ($transaction) {
-                $transaction->commit();
-            })->catch(function (\Throwable $e) {
-                $this->logger->error('COMMIT failed: ' . $e->getMessage());
-            })->finally(function () use ($deferred) {
-                $deferred->resolve(null);
-            });
-            Future\await([$commit]);
-            $this->logger->notice(sprintf(
-                'COMMITTED %d queries in %.02fms',
-                count($queries),
-                (microtime(true) - $start) * 1000
-            ));
-            $deferred->resolve([$action->streamPosition]);
-        } catch (\Throwable $e) {
-            $this->logger->error('Transaction failed ' . $e->getMessage() . ' (' . $e->getFile() . ':' . $e->getLine() . ')');
-            $transaction->rollback();
-            try {
-                $this->setSyncError($action->sourceNode, $action->tableName, $e);
-            } catch (\Throwable $e) {
-                $this->logger->notice('Unable to write error information to DB: ' . $e->getMessage());
-            }
-        }
-
-        await($deferred->promise());
     }
 }
