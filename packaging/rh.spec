@@ -29,7 +29,7 @@ rm -rf %{buildroot}
 mkdir -p %{buildroot}
 mkdir -p %{buildroot}%{basedir}
 cd - # ???
-cp -pr bin lua src vendor feature.php %{buildroot}%{basedir}/
+cp -pr src vendor feature.php %{buildroot}%{basedir}/
 
 %clean
 rm -rf %{buildroot}
