@@ -19,7 +19,7 @@ Packager:       Thomas Gelf <thomas@gelf.net>
 Requires:       imedge-node
 
 %description
-This package provides a central DB-based inventory for your IMEdge Node]. It
+This package provides a central DB-based inventory for your IMEdge Node. It
 streams inventory-related changes from remote IMEdge nodes, and keeps the
 central database up to date.
 
