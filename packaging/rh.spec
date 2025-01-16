@@ -11,7 +11,7 @@ Release:        %{revision}%{?dist}
 Summary:        IMEdge Inventory Feature
 Group:          Applications/System
 License:        MIT
-URL:            https://github.com/im-edge
+URL:            https://github.com/im-edge/inventory-feature
 Source0:        https://github.com/im-edge/inventory-feature/archive/%{git_hash}.tar.gz
 BuildArch:      noarch
 BuildRoot:      %{_tmppath}/%{name}-%{git_version}-%{release}
