@@ -5,7 +5,7 @@
 %define bindir          %{_bindir}
 %undefine __brp_mangle_shebangs
 
-Name:           imedge-inventory-feature
+Name:           imedge-feature-inventory
 Version:        %{git_version}
 Release:        %{revision}%{?dist}
 Summary:        IMEdge Inventory Feature
@@ -19,7 +19,9 @@ Packager:       Thomas Gelf <thomas@gelf.net>
 Requires:       imedge-node
 
 %description
-IMEdge Inventory Feature
+This package provides a central DB-based inventory for your IMEdge Node]. It
+streams inventory-related changes from remote IMEdge nodes, and keeps the
+central database up to date.
 
 %prep
 
