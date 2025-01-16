@@ -24,5 +24,11 @@
     "ext-posix": "*",
     "imedge/log": ">=0.7.1",
     "imedge/db-migration": ">=0.1"
+  },
+  "require-dev": {
+    "phpstan/phpstan": "^1.10 | ^2",
+    "phpunit/phpunit": "^10.3",
+    "squizlabs/php_codesniffer": "^3.7",
+    "symplify/easy-coding-standard": "^12.0"
   }
 }
