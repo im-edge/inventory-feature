@@ -10,7 +10,6 @@ use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
 use Revolt\EventLoop;
 
-
 class InventoryRunner
 {
     protected bool $logActivities = true;
