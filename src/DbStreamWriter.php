@@ -73,6 +73,11 @@ class DbStreamWriter
     protected function processResultRow($row, array &$streamPositions, int &$cntQueries): void
     {
         $streamName = $row[0];
+        if (!isset($streamPositions[$streamName])) {
+            // Skip failing streams early. Happens when the outer processRedisStreamResults
+            // is still running, but we already failed.
+            return;
+        }
         $nodeUuid = static::extractNodeUuidFromStreamName($streamName);
         foreach ($row[1] as $entry) {
             $streamPosition = $entry[0];
@@ -108,10 +113,13 @@ class DbStreamWriter
                     $this->logger->error('Failed query: ' . $this->queryHelper->lastSql);
                     $this->setSyncError($nodeUuid, $streamPositions[$streamName], $e);
                     unset($streamPositions[$streamName]);
+                    return; // exit from the current (inner) loop
                 }
             } catch (\Throwable $e) {
-                echo $e->getMessage();
-                exit;
+                $this->logger->error('DbStreamWriter failed badly: ' . $e->getMessage());
+                $this->setSyncError($nodeUuid, $streamPositions[$streamName], $e);
+                unset($streamPositions[$streamName]);
+                return; // exit from the current (inner) loop
             }
         }
     }
