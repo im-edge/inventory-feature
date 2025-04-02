@@ -20,6 +20,11 @@ class InventoryStreamer implements ImedgeWorker
     ) {
     }
 
+    public function getApiInstances(): array
+    {
+        return [];
+    }
+
     public function start(): void
     {
         $this->writer = new DbStreamWriter(
