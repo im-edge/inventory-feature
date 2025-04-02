@@ -82,9 +82,11 @@ class DbStreamWriter
         foreach ($row[1] as $entry) {
             $streamPosition = $entry[0];
             $rawData = RedisResult::toHash($entry[1]);
-            $values = JsonString::decode($rawData->value);
+            $values = isset($rawData->value) ? JsonString::decode($rawData->value) : null;
             $keyProperties = JsonString::decode($rawData->keyProperties);
-            self::fixErroneousOidSerialization($values);
+            if ($values) {
+                self::fixErroneousOidSerialization($values);
+            }
             $action = new InventoryAction(
                 $this->dataNodeUuid,
                 $rawData->table,
@@ -183,6 +185,12 @@ class DbStreamWriter
         $table = $action->tableName;
         $values = $action->getAllDbValues();
         $keyProperties = $action->getDbKeyProperties();
+        if ($action->action === InventoryActionType::DELETE) {
+            if ($keyProperties === ['uuid' => null]) {
+                // Workaround for RRD file deletion for now
+                $keyProperties = ['uuid' => Uuid::fromString($action->key)->getBytes()];
+            }
+        }
         $result = match ($action->action) {
             InventoryActionType::CREATE => $this->queryHelper->insert(
                 $table,
