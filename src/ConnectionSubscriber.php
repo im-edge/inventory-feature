@@ -103,7 +103,6 @@ class ConnectionSubscriber implements ConnectionSubscriberInterface
                     });
                 });
             }
-
         } catch (Throwable $e) {
             $this->logger->error('Activating connection failed: ' . $e->getMessage());
         }

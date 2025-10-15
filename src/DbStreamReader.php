@@ -49,7 +49,7 @@ final class DbStreamReader
         Retry::forever(function () {
             $this->redis->execute('CLIENT', 'SETNAME', self::NAME);
             $this->initializeReadParams();
-            $this->logger->notice(sprintf( '%s: %s is ready', self::NAME, self::STORE_APP));
+            $this->logger->notice(sprintf('%s: %s is ready', self::NAME, self::STORE_APP));
             $this->readStreams();
         }, self::STORE_APP, 10, 1, 30, $this->logger);
     }
