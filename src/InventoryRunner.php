@@ -5,6 +5,7 @@ namespace IMEdge\InventoryFeature;
 use IMEdge\InventoryFeature\Db\DbConnection;
 use IMEdge\Node\Application;
 use IMEdge\Node\Feature;
+use IMEdge\Node\Worker\WorkerInstance;
 use Psr\Log\LoggerInterface;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
@@ -13,6 +14,7 @@ use Revolt\EventLoop;
 class InventoryRunner
 {
     protected bool $logActivities = true;
+    protected ?WorkerInstance $worker = null;
 
     public function __construct(
         public readonly Feature $feature,
@@ -23,10 +25,16 @@ class InventoryRunner
 
     public function run(): void
     {
-        $worker = $this->feature->workerInstances->launchWorker('inventory-db-streamer', Uuid::uuid4());
-        $worker->run(InventoryStreamer::class, $this->feature->settings);
+        $this->worker = $this->feature->workerInstances->launchWorker('inventory-db', Uuid::uuid4());
+        $this->worker->run(InventoryStreamer::class, $this->feature->settings);
         EventLoop::delay(1.5, $this->shipLocalSnmpCredentials(...));
         $this->registerNode($this->feature->nodeIdentifier->uuid, $this->feature->nodeIdentifier->name);
+    }
+
+    public function stop(): void
+    {
+        $this->worker?->stop();
+        $this->worker = null;
     }
 
     public function registerNode(UuidInterface $uuid, string $name): void
