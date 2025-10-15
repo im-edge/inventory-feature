@@ -6,12 +6,16 @@ use Amp\Mysql\MysqlExecutor;
 use Amp\Mysql\MysqlResult;
 use Psr\Log\LoggerInterface;
 
+/**
+ * @deprecated
+ */
 class DbQueryHelper
 {
     public function __construct(
         protected readonly MysqlExecutor $executor,
         protected readonly LoggerInterface $logger,
-    ) {}
+    ) {
+    }
 
     public function insert(string $table, array $values, ?LoggerInterface $logger = null): MysqlResult
     {

@@ -6,6 +6,9 @@ use PDO;
 use PDOStatement;
 use Psr\Log\LoggerInterface;
 
+/**
+ * @deprecated
+ */
 class PdoQueryHelper
 {
     /**
@@ -17,7 +20,8 @@ class PdoQueryHelper
     public function __construct(
         protected readonly PDO $pdo,
         protected readonly LoggerInterface $logger,
-    ) {}
+    ) {
+    }
 
     public function insert(string $table, array $values): false|int
     {
