@@ -22,7 +22,7 @@
     "ext-mbstring": "*",
     "ext-pdo": "*",
     "ext-posix": "*",
-    "imedge/db-migration": ">=0.4",
+    "imedge/db-migration": ">=0.7",
     "imedge/log": ">=0.7.1",
     "imedge/node-provided-libs": "^0.12"
   },
