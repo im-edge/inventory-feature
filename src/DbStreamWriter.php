@@ -2,14 +2,13 @@
 
 namespace IMEdge\InventoryFeature;
 
-use IMEdge\Async\Retry;
 use IMEdge\Inventory\InventoryAction;
 use IMEdge\Inventory\InventoryActionType;
-use IMEdge\InventoryFeature\Db\PdoQueryHelper;
+use IMEdge\InventoryFeature\Db\DbBasedComponent;
 use IMEdge\Json\JsonString;
+use IMEdge\PDO\PDO;
 use IMEdge\RedisTables\RedisTables;
 use IMEdge\RedisUtils\RedisResult;
-use PDO;
 use PDOException;
 use Psr\Log\LoggerInterface;
 use Ramsey\Uuid\Uuid;
@@ -18,11 +17,10 @@ use Revolt\EventLoop;
 use RuntimeException;
 use SensitiveParameter;
 
-class DbStreamWriter
+class DbStreamWriter implements DbBasedComponent
 {
     protected array $streamPositions = [];
     protected ?PDO $db = null;
-    protected ?PdoQueryHelper $queryHelper = null;
 
     public function __construct(
         protected readonly LoggerInterface $logger,
@@ -33,7 +31,6 @@ class DbStreamWriter
         public ?string $password = null,
         public ?array $options = null,
     ) {
-        $this->db();
         EventLoop::repeat(12, $this->refreshStreamPositions(...));
     }
 
@@ -45,8 +42,9 @@ class DbStreamWriter
         }
 
         $result = [];
-        foreach ($db->query('SELECT uuid, db_stream_position FROM datanode WHERE db_stream_error IS NULL ORDER BY RAND();') as $row) {
-            $result[RedisTables::STREAM_NAME_PREFIX . Uuid::fromBytes($row[0])->toString()] = $row[1];
+        $query = 'SELECT uuid, db_stream_position FROM datanode WHERE db_stream_error IS NULL ORDER BY RAND()';
+        foreach ($db->fetchPairs($query) as $uuid => $position) {
+            $result[RedisTables::STREAM_NAME_PREFIX . Uuid::fromBytes($uuid)->toString()] = $position;
         }
 
         $this->streamPositions = $result;
@@ -108,11 +106,11 @@ class DbStreamWriter
                 if (str_contains($e->getMessage(), 'Duplicate entry')) {
                     $this->logger->error(sprintf(
                         'Ignoring duplicate key error for %s: %s',
-                         $this->queryHelper->lastSql,
+                        $this->db->getLastSqlStatement(),
                         $e->getMessage()
                     ));
                 } else {
-                    $this->logger->error('Failed query: ' . $this->queryHelper->lastSql);
+                    $this->logger->error('Failed query: ' . $this->db->getLastSqlStatement());
                     $this->setSyncError($nodeUuid, $streamPositions[$streamName], $e);
                     unset($streamPositions[$streamName]);
                     return; // exit from the current (inner) loop
@@ -131,7 +129,7 @@ class DbStreamWriter
         if (empty($results)) {
             return;
         }
-        $db = $this->db() ?? throw new \Exception('DB is not ready');
+        $db = $this->db ?? throw new \Exception('DB is not ready');
         $start = microtime(true);
         $db->beginTransaction();
         $streamPositions = $this->streamPositions;
@@ -144,7 +142,7 @@ class DbStreamWriter
         try {
             foreach ($streamPositions as $nodeUuid => $streamPosition) {
                 $nodeUuid = self::extractNodeUuidFromStreamName($nodeUuid);
-                $this->queryHelper->update('datanode', [
+                $this->db->update('datanode', [
                     'db_stream_position' => $streamPosition,
                     'db_stream_error' => null,
                 ], [
@@ -175,7 +173,6 @@ class DbStreamWriter
                 $db->query('SELECT 1 FROM DUAL');
             } catch (PDOException) {
                 $this->db = null;
-                $this->queryHelper = null;
             }
         }
     }
@@ -191,17 +188,17 @@ class DbStreamWriter
                 $keyProperties = ['uuid' => Uuid::fromString($action->key)->getBytes()];
             }
         }
-        $result = match ($action->action) {
-            InventoryActionType::CREATE => $this->queryHelper->insert(
+        $rowCount = match ($action->action) {
+            InventoryActionType::CREATE => $this->db->insert(
                 $table,
                 $values
             ),
-            InventoryActionType::UPDATE => $this->queryHelper->update(
+            InventoryActionType::UPDATE => $this->db->update(
                 $table,
                 $action->getDbValuesForUpdate(),
                 $keyProperties
             ),
-            InventoryActionType::DELETE => $this->queryHelper->delete(
+            InventoryActionType::DELETE => $this->db->delete(
                 $table,
                 $keyProperties
             ),
@@ -211,26 +208,10 @@ class DbStreamWriter
     public function setSyncError(string $nodeUuid, string $lastSuccessfulPosition, \Throwable $e): void
     {
         $this->logger->error(sprintf('DB Stream sync error for %s: %s', $nodeUuid, $e->getMessage()));
-        $this->queryHelper->update('datanode', [
+        $this->db->update('datanode', [
             'db_stream_position' => $lastSuccessfulPosition,
-            'db_stream_error'    => $e->getMessage() . "\n" . $this->queryHelper->lastSql,
-        ], ['uuid'      => Uuid::fromString($nodeUuid)->getBytes()], $this->logger);
-    }
-
-    protected function db(): ?PDO
-    {
-        if ($this->db === null) {
-            Retry::forever(function () {
-                $this->db = new PDO($this->dsn, $this->username, $this->password, $this->options ?? [] + [
-                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
-                ]);
-                $this->queryHelper = new PdoQueryHelper($this->db, $this->logger);
-                $this->refreshStreamPositions();
-                $this->logger->notice('DB connection has been established');
-            }, 'DB connection', 15, 1, 30, $this->logger);
-        }
-
-        return $this->db;
+            'db_stream_error'    => $e->getMessage() . "\n" . $this->db->getLastSqlStatement(),
+        ], ['uuid' => Uuid::fromString($nodeUuid)->getBytes()]);
     }
 
     protected static function fixErroneousOidSerialization(&$values): void
@@ -240,5 +221,17 @@ class DbStreamWriter
                 $value = $value->oid;
             }
         }
+    }
+
+    public function initDb(PDO $db): void
+    {
+        $this->db = $db;
+        $this->refreshStreamPositions();
+        $this->logger->notice('DbStreamWriter got a DB connection');
+    }
+
+    public function stopDb(): void
+    {
+        $this->db = null;
     }
 }
