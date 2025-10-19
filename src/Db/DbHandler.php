@@ -216,7 +216,6 @@ class DbHandler
     {
         $db->delete(self::TABLE_NAME, 'ts_stopped IS NOT NULL');
         $db->delete(self::TABLE_NAME, ['instance_uuid' => $this->details->instanceUuid]);
-        $this->logger->notice(var_export(TimeUtil::timestampWithMilliseconds() - (60 * 1000), true));
         $count = $db->delete(
             self::TABLE_NAME,
             'ts_stopped IS NULL AND ts_last_update < ' . (
