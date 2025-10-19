@@ -57,8 +57,8 @@ class DbHandler
     {
         $this->connect();
         $this->refreshTimer = EventLoop::repeat(3, $this->refreshMyState(...));
-        $this->schemaCheckTimer = EventLoop::repeat(15, $this->checkDbSchema(...));
-        EventLoop::defer($this->checkDbSchema(...));
+        $this->schemaCheckTimer = EventLoop::repeat(15, $this->triggerDbSchemaCheck(...));
+        EventLoop::defer($this->triggerDbSchemaCheck(...));
     }
 
     protected function establishConnection(/* $config */): void
@@ -74,7 +74,7 @@ class DbHandler
 
         $this->pendingReconnection = new RetryingFuture(
             $this->reallyConnect(...),
-            'Reconnecting',
+            'Reconnection',
             10,
             0.2,
             10,
@@ -92,10 +92,7 @@ class DbHandler
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
         ]);
         $migrations = $this->getMigrations($db);
-        if (! $migrations->hasSchema()) {
-            $this->emitStatus(self::ON_NO_SCHEMA, 'error');
-            throw new RuntimeException('DB has no schema' . $db->getLastSqlStatement());
-        }
+        $this->checkDbSchema($db);
         if ($this->hasAnyOtherActiveInstance($db)) {
             $this->emitStatus(self::ON_LOCKED_BY_OTHER_INSTANCE, 'error');
             throw new RuntimeException('DB is locked by a running daemon instance');
@@ -108,26 +105,50 @@ class DbHandler
         $this->db = $db;
     }
 
-    protected function checkDbSchema(): void
+    /**
+     * Call checkDbSchema w/o parameter
+     *
+     * Problem: EventLoop::defer() & co pass the callback id, and would therefore
+     * trigger an invalid type exception with the optional PDO parameter
+     */
+    protected function triggerDbSchemaCheck(): void
     {
-        if ($this->db === null) {
+        $this->checkDbSchema();
+    }
+
+    protected function checkDbSchema(?PDO $db = null): void
+    {
+        $db ??= $this->db;
+        if ($db === null) {
             return;
         }
-        $migrations = $this->getMigrations($this->db);
+        $migrations = $this->getMigrations($db);
+
+        if (! $migrations->hasSchema()) {
+            if ($migrations->hasAnyTable()) {
+                $this->emitStatus(self::ON_NO_SCHEMA, 'error');
+                throw new RuntimeException('DB has no IMEdge schema, but other tables');
+            }
+            $this->logger->warning('DB has no IMEdge schema, creating now');
+            $migrations->createSchema();
+            $this->startupSchemaVersion = $migrations->getLastMigrationNumber();
+            $this->logger->notice('IMEdge schema has been created');
+            return;
+        }
         if ($migrations->hasPendingMigrations()) {
             $this->logger->warning('Schema is outdated, applying migrations');
             $count = $migrations->countPendingMigrations();
             $migrations->applyPendingMigrations();
             if ($count === 1) {
-                $this->logger->notice("A pending DB migration has been applied");
+                $this->logger->notice('A pending DB migration has been applied');
             } else {
                 $this->logger->notice("$count pending DB migrations have been applied");
             }
         }
-        if ($this->schemaIsOutdated()) {
+        if ($this->schemaIsOutdated($db)) {
             $this->emit(self::ON_SCHEMA_CHANGE, [
                 $this->getStartupSchemaVersion(),
-                $this->getDbSchemaVersion()
+                $this->getDbSchemaVersion($db)
             ]);
         }
     }
@@ -137,25 +158,26 @@ class DbHandler
         return new Migrations($db, dirname(__DIR__, 2) . '/schema', 'inventory');
     }
 
-    protected function schemaIsOutdated(): bool
+    protected function schemaIsOutdated(PDO $db): bool
     {
-        return $this->getStartupSchemaVersion() < $this->getDbSchemaVersion();
+        return $this->getStartupSchemaVersion() < $this->getDbSchemaVersion($db);
     }
 
     protected function getStartupSchemaVersion(): int
     {
-        return $this->startupSchemaVersion;
+        return $this->startupSchemaVersion ?? 0;
     }
 
-    protected function getDbSchemaVersion(): int
+    protected function getDbSchemaVersion(?PDO $db = null): int
     {
-        if ($this->db === null) {
+        $db = $db ?? $this->db;
+        if ($db === null) {
             throw new RuntimeException(
                 'Cannot determine DB schema version without an established DB connection'
             );
         }
 
-        return $this->getMigrations($this->db)->getLastMigrationNumber();
+        return $this->getMigrations($db)->getLastMigrationNumber();
     }
 
     protected function onConnected(): void
