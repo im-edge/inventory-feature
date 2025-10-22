@@ -9,6 +9,7 @@ use IMEdge\Async\RetryingFuture;
 use IMEdge\DbMigration\Migrations;
 use IMEdge\InventoryFeature\State\DaemonProcessDetails;
 use IMEdge\PDO\PDO;
+use IMEdge\SimpleDaemon\Process;
 use Psr\Log\LoggerInterface;
 use Ramsey\Uuid\Uuid;
 use Revolt\EventLoop;
@@ -138,12 +139,18 @@ class DbHandler
         if ($migrations->hasPendingMigrations()) {
             $this->logger->warning('Schema is outdated, applying migrations');
             $count = $migrations->countPendingMigrations();
-            $migrations->applyPendingMigrations();
-            if ($count === 1) {
-                $this->logger->notice('A pending DB migration has been applied');
-            } else {
-                $this->logger->notice("$count pending DB migrations have been applied");
+            try {
+                $migrations->applyPendingMigrations();
+            } catch (\Throwable $e) {
+                $this->logger->error('Applying migrations failed: ' . $e->getMessage());
+                return;
             }
+            if ($count === 1) {
+                $this->logger->notice('A pending DB migration has been applied'); // , restarting the process
+            } else {
+                $this->logger->notice("$count pending DB migrations have been applied"); // , restarting the DB process
+            }
+            // EventLoop::defer(Process::restart(...));
         }
         if ($this->schemaIsOutdated($db)) {
             $this->emit(self::ON_SCHEMA_CHANGE, [
