@@ -26,11 +26,11 @@ CREATE TABLE data_known_zipcode (
   INDEX idx_search_place (place, country_code, state, zip)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_bin;
 
-
-
 CREATE TABLE datanode (
   uuid VARBINARY(16) NOT NULL,
   label VARCHAR(255) CHARACTER SET ascii COLLATE ascii_general_ci NOT NULL,
+  db_stream_position VARCHAR(21) NOT NULL,
+  COLUMN db_stream_error TEXT DEFAULT NULL,
   -- config TEXT NULL DEFAULT NULL,
   -- TODO: node_health, last_seen?
   -- TODO: node_type: node, sub-process
@@ -62,15 +62,53 @@ CREATE TABLE datanode_table_action_history (
   PRIMARY KEY (datanode_uuid, table_name, stream_position)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_bin;
 
+CREATE TABLE system_lifecycle (
+  uuid VARBINARY(16) NOT NULL,
+  label VARCHAR(64) NOT NULL,
+  is_configurable ENUM('y', 'n') NOT NULL,
+  is_enabled ENUM('y', 'n') NOT NULL,
+  enable_alarming ENUM('y', 'n') NOT NULL,
+  enable_monitoring ENUM('y', 'n') NOT NULL,
+  enable_discovery ENUM('y', 'n') NOT NULL,
+  PRIMARY KEY (uuid),
+  UNIQUE INDEX idx_label (label)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_bin;
 
+-- default list with default custom UUIDv5:
+INSERT INTO system_lifecycle VALUES
+    -- ns: 5fee96a1-6fa0-4700-936e-02780e8c0ff4
+    -- uuidgen --sha1 --namespace 5fee96a1-6fa0-4700-936e-02780e8c0ff4 --name Acquisition
+    -- ab238f2d-ea40-5279-8d65-ef21667ed087
+    (0xab238f2dea4052798d65ef21667ed087, 'Acquisition',       'n', 'y', 'n', 'n', 'n'),
+    (0x6a2aa31b992a574ebc59ea1d6fccc42a, 'Deployment',        'n', 'y', 'n', 'n', 'y'),
+    (0xd71539b650f25ccf804f2980b8d8217b, 'Business as usual', 'n', 'y', 'y', 'y', 'y'),
+    (0x7d214595d0965032b7de7615e4464b40, 'Maintenance',       'n', 'y', 'n', 'y', 'n'),
+    (0x49010e829c8455529ae8e6e57ee269d5, 'Retirement',        'n', 'y', 'n', 'n', 'n');
+
+CREATE TABLE system_environment (
+  uuid VARBINARY(16) NOT NULL,
+  label VARCHAR(64) NOT NULL,
+  is_configurable ENUM('y', 'n') NOT NULL,
+  is_enabled ENUM('y', 'n') NOT NULL,
+  PRIMARY KEY (uuid),
+  UNIQUE INDEX idx_label (label)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_bin;
+
+INSERT INTO system_environment VALUES
+    (0xc6d5e5f05ba35625a7bc7f97fb8a1d97, 'Development', 'n', 'y'),
+    -- This is the lowest risk environment, where all the initial development work occurs.
+    (0xea92aaacf68257bd8111ea91497f6ebc, 'Testing', 'n', 'y'),
+    -- A Test environment is where you test your upgrade procedure against controlled data and perform controlled testing of the resulting Waveset application.
+    -- The server where QA team perform the testing with the different input parameter. This allows the team to access the work for verification. The internal team completes the testing phase, usually with the use of a QA Tester. The tester will run various use cases to ensure that the product is functioning as it should. If the tester discovers bugs or other issues, they will create tasks for the developers or programmers to fix.
+    (0xb8ac93707916500d8d5f49a769f51ad4, 'Production', 'n', 'y');
+    -- Production server is the server where our live data is stored.
+    -- After all stages of the testing data goes to live.
 
 CREATE TABLE inventory_raw_svg (
   svg_checksum VARBINARY(20) NOT NULL,
   raw_xml TEXT NOT NULL,
   PRIMARY KEY (svg_checksum)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_bin;
-
-
 
 CREATE TABLE inventory_address (
   uuid VARBINARY(16) NOT NULL,
@@ -160,13 +198,6 @@ CREATE TABLE inventory_facility (
     ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_bin;
 
-
-
-
-
-
-
-
 CREATE TABLE inventory_vendor (
   vendor_uuid VARBINARY(16) NOT NULL,
   vendor_name VARCHAR(64) NOT NULL,
@@ -179,9 +210,6 @@ CREATE TABLE inventory_vendor (
 -- INSERT INTO inventory_vendor SET
 --   vendor_uuid = UNHEX(REPLACE('00000000-0000-0000-0000-000000000000', '-', '')),
 --   vendor_name = 'unknown';
-
-
-
 
 CREATE TABLE inventory_rack_model (
   rack_model_uuid VARBINARY(20) NOT NULL,
@@ -238,8 +266,6 @@ CREATE TABLE inventory_device_model (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_bin;
 
 -- TODO: implement rack/device_model-capabilities
-
-
 
 -- unused, currently using reduced snmp_agent table
 CREATE TABLE inventory_device (
@@ -319,8 +345,6 @@ CREATE TABLE inventory_rack_device_map (
     ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_bin;
 
-
-
 CREATE TABLE inventory_physical_entity (
   device_uuid VARBINARY(16) NOT NULL,
   entity_index INT(10) UNSIGNED NOT NULL,
@@ -346,7 +370,7 @@ CREATE TABLE inventory_physical_entity (
     'energyObject', -- 13
     'battery',      -- 14
     'storageDrive'  -- 15
-  ) NOT NULL DEFAULT 'unknown',
+  ) NULL DEFAULT 'unknown',
   relative_position INT(10) NULL DEFAULT NULL,
   revision_hardware VARCHAR(64) DEFAULT NULL,
   revision_firmware VARCHAR(64) DEFAULT NULL,
@@ -356,7 +380,6 @@ CREATE TABLE inventory_physical_entity (
   field_replaceable_unit ENUM('y','n') DEFAULT NULL, -- really, NULL?
   PRIMARY KEY (device_uuid, entity_index)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_bin;
-
 
 CREATE TABLE inventory_physical_entity_sensor (
   device_uuid VARBINARY(16) NOT NULL,
@@ -414,13 +437,10 @@ CREATE TABLE inventory_entity_ifmap (
   device_uuid VARBINARY(16) NOT NULL,
   entity_index INT(10) UNSIGNED NOT NULL,
   if_index INT(10) UNSIGNED NOT NULL,
-  PRIMARY KEY (device_uuid, entity_index)
+  PRIMARY KEY (device_uuid, entity_index),
+  INDEX idx_device_if (device_uuid, if_index)
   -- UNIQUE INDEX ifmap_idx (device_uuid, if_index) -> encountered duplicates
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_bin;
-
-
-
-
 
 CREATE TABLE snmp_credential (
   -- TODO:
@@ -436,7 +456,7 @@ CREATE TABLE snmp_credential (
   --       "mandatory(?), but usually empty"
   auth_protocol ENUM('md5','sha1', 'sha224', 'sha256', 'sha384', 'sha512') DEFAULT NULL,
   auth_key VARCHAR(64) DEFAULT NULL,
-  priv_protocol ENUM('des','aes128', 'aes192', 'aes256') DEFAULT NULL, -- TODO: 3DES, DES?
+  priv_protocol ENUM('des', 'des3', 'aes128', 'aes192', 'aes192c', 'aes256', 'aes256c') DEFAULT NULL,
   priv_key VARCHAR(64) DEFAULT NULL,
   PRIMARY KEY (credential_uuid),
   UNIQUE KEY credential_name (credential_name)
@@ -446,6 +466,8 @@ CREATE TABLE snmp_agent (
   agent_uuid VARBINARY(16) NOT NULL,
   credential_uuid VARBINARY(16) NOT NULL,
   datanode_uuid VARBINARY(16) NULL DEFAULT NULL,
+  lifecycle_uuid VARBINARY(16) NOT NULL,
+  environment_uuid VARBINARY(16) NOT NULL,
   engine_boots INT(10) NULL DEFAULT NULL,
   ip_address VARBINARY(16) NOT NULL,
   ip_protocol ENUM('ipv4','ipv6') NOT NULL, -- TODO: remove
@@ -485,7 +507,13 @@ CREATE TABLE snmp_agent (
   PRIMARY KEY (agent_uuid),
   CONSTRAINT snmp_agent_credential
     FOREIGN KEY (credential_uuid)
-    REFERENCES snmp_credential (credential_uuid)
+    REFERENCES snmp_credential (credential_uuid),
+  CONSTRAINT snmp_agent_lifecycle
+    FOREIGN KEY (lifecycle_uuid)
+    REFERENCES system_lifecycle (uuid),
+  CONSTRAINT snmp_agent_environment
+    FOREIGN KEY (environment_uuid)
+    REFERENCES system_environment (uuid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_bin;
 
 CREATE TABLE snmp_target_health (
@@ -523,16 +551,19 @@ CREATE TABLE snmp_system_info (
   PRIMARY KEY (uuid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_bin;
 
-
-
-
 CREATE TABLE snmp_discovery_rule (
   uuid VARBINARY(16) NOT NULL,
+  credential_uuid VARBINARY(16) NOT NULL,
   label VARCHAR(128) NOT NULL,
-  implementation VARCHAR(128) NOT NULL, -- moduleName/ClassName
+  implementation VARCHAR(128) NOT NULL, -- moduleName/ClassName? Currently it's full class name
   settings TEXT NOT NULL, -- json-encoded
+  -- TODO Node Filters?
+  -- Protocol?
   PRIMARY KEY (uuid),
-  UNIQUE INDEX (label)
+  UNIQUE INDEX (label),
+  CONSTRAINT snmp_discovery_rule_credential
+    FOREIGN KEY (credential_uuid)
+    REFERENCES snmp_credential (credential_uuid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_bin;
 
 -- insert into snmp_discovery_rule (uuid, label, implementation, settings) VALUES (UNHEX(REPLACE(UUID(), '-', '')), 'Nedis Import', 'inventory/NedisImport', '{}');
@@ -558,13 +589,11 @@ CREATE TABLE snmp_discovery_candidate (
     REFERENCES snmp_discovery_rule (uuid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_bin;
 
-
-
-
 CREATE TABLE snmp_interface_config (
   system_uuid VARBINARY(16) NOT NULL,
+  datanode_uuid VARBINARY(16) NOT NULL,
   if_index INT(10) UNSIGNED DEFAULT NULL,
-  if_type MEDIUMINT(8) UNSIGNED NOT NULL,
+  if_type MEDIUMINT(8) UNSIGNED NULL DEFAULT NULL,
   if_name VARBINARY(64) DEFAULT NULL, -- really, NULL?
   if_alias VARCHAR(255) DEFAULT NULL,
   if_description VARCHAR(255) DEFAULT NULL,
@@ -590,7 +619,6 @@ CREATE TABLE snmp_interface_config (
   KEY if_index (if_index)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_bin;
 
-
 CREATE TABLE snmp_interface_status (
   system_uuid VARBINARY(16) NOT NULL,
   if_index INT(10) UNSIGNED DEFAULT NULL,
@@ -610,12 +638,11 @@ CREATE TABLE snmp_interface_status (
   PRIMARY KEY (system_uuid, if_index)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_bin;
 
--- Changes:
-DROP TABLE snmp_agent;
 CREATE TABLE snmp_agent (
   agent_uuid VARBINARY(16) NOT NULL,
   credential_uuid VARBINARY(16) NOT NULL,
   datanode_uuid VARBINARY(16) NULL DEFAULT NULL,
+  lifecycle_uuid VARBINARY(16) NOT NULL,
   ip_address VARBINARY(16) NOT NULL,
   ip_protocol ENUM('ipv4','ipv6') NOT NULL, -- TODO: remove
   snmp_port SMALLINT(5) UNSIGNED NOT NULL DEFAULT '161',
@@ -623,79 +650,11 @@ CREATE TABLE snmp_agent (
   PRIMARY KEY (agent_uuid),
   CONSTRAINT snmp_agent_credential
     FOREIGN KEY (credential_uuid)
-    REFERENCES snmp_credential (credential_uuid)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_bin;
-
-
--- After EOLO:
-
-
-CREATE TABLE system_lifecycle (
-  uuid VARBINARY(16) NOT NULL,
-  label VARCHAR(64) NOT NULL,
-  is_configurable ENUM('y', 'n') NOT NULL,
-  is_enabled ENUM('y', 'n') NOT NULL,
-  enable_alarming ENUM('y', 'n') NOT NULL,
-  enable_monitoring ENUM('y', 'n') NOT NULL,
-  enable_discovery ENUM('y', 'n') NOT NULL,
-  PRIMARY KEY (uuid),
-  UNIQUE INDEX idx_label (label)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_bin;
-
--- default list with default custom UUIDv5:
-INSERT INTO system_lifecycle VALUES
-    -- ns: 5fee96a1-6fa0-4700-936e-02780e8c0ff4
-
-    -- uuidgen --sha1 --namespace 5fee96a1-6fa0-4700-936e-02780e8c0ff4 --name Acquisition
-    -- ab238f2d-ea40-5279-8d65-ef21667ed087
-
-    (0xab238f2dea4052798d65ef21667ed087, 'Acquisition',       'n', 'y', 'n', 'n', 'n'),
-    (0x6a2aa31b992a574ebc59ea1d6fccc42a, 'Deployment',        'n', 'y', 'n', 'n', 'y'),
-    (0xd71539b650f25ccf804f2980b8d8217b, 'Business as usual', 'n', 'y', 'y', 'y', 'y'),
-    (0x7d214595d0965032b7de7615e4464b40, 'Maintenance',       'n', 'y', 'n', 'y', 'n'),
-    (0x49010e829c8455529ae8e6e57ee269d5, 'Retirement',        'n', 'y', 'n', 'n', 'n');
-
-
-CREATE TABLE system_environment (
-  uuid VARBINARY(16) NOT NULL,
-  label VARCHAR(64) NOT NULL,
-  is_configurable ENUM('y', 'n') NOT NULL,
-  is_enabled ENUM('y', 'n') NOT NULL,
-  PRIMARY KEY (uuid),
-  UNIQUE INDEX idx_label (label)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_bin;
-
-INSERT INTO system_environment VALUES
-    (0xc6d5e5f05ba35625a7bc7f97fb8a1d97, 'Development', 'n', 'y'),
-    -- This is the lowest risk environment, where all the initial development work occurs.
-    (0xea92aaacf68257bd8111ea91497f6ebc, 'Testing', 'n', 'y'),
-    -- A Test environment is where you test your upgrade procedure against controlled data and perform controlled testing of the resulting Waveset application.
-    -- The server where QA team perform the testing with the different input parameter. This allows the team to access the work for verification. The internal team completes the testing phase, usually with the use of a QA Tester. The tester will run various use cases to ensure that the product is functioning as it should. If the tester discovers bugs or other issues, they will create tasks for the developers or programmers to fix.
-    (0xb8ac93707916500d8d5f49a769f51ad4, 'Production', 'n', 'y');
-    -- Production server is the server where our live data is stored.
-    -- After all stages of the testing data goes to live.
-
-
-ALTER TABLE snmp_agent ADD COLUMN lifecycle_uuid VARBINARY(16) NULL DEFAULT NULL AFTER datanode_uuid;
-UPDATE snmp_agent SET lifecycle_uuid = 0x7d214595d0965032b7de7615e4464b40;
-ALTER TABLE snmp_agent MODIFY COLUMN lifecycle_uuid VARBINARY(16) NOT NULL;
-ALTER TABLE snmp_agent ADD
+    REFERENCES snmp_credential (credential_uuid),
   CONSTRAINT snmp_agent_lifecycle
     FOREIGN KEY (lifecycle_uuid)
-    REFERENCES system_lifecycle (uuid);
-
-
-ALTER TABLE snmp_agent ADD COLUMN environment_uuid VARBINARY(16) NULL DEFAULT NULL AFTER lifecycle_uuid;
-UPDATE snmp_agent SET environment_uuid = 0xb8ac93707916500d8d5f49a769f51ad4;
-ALTER TABLE snmp_agent MODIFY COLUMN environment_uuid VARBINARY(16) NOT NULL;
-ALTER TABLE snmp_agent ADD
-  CONSTRAINT snmp_agent_environment
-    FOREIGN KEY (environment_uuid)
-    REFERENCES system_environment (uuid);
-
-
-
-
+    REFERENCES system_lifecycle (uuid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_bin;
 
 CREATE TABLE rrd_archive_set (
   uuid VARBINARY(16) NOT NULL, -- uuid5(ns . sha1(..)
@@ -704,7 +663,6 @@ CREATE TABLE rrd_archive_set (
   PRIMARY KEY (uuid),
   INDEX search_idx (description (128))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_bin;
-
 
 CREATE TABLE rrd_archive (
   rrd_archive_set_uuid VARBINARY(16) NOT NULL,
@@ -739,12 +697,10 @@ CREATE TABLE rrd_archive (
     ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_bin;
 
-
 CREATE TABLE rrd_datasource_list (
-    uuid VARBINARY(16) NOT NULL,
-    PRIMARY KEY(uuid)
+  uuid VARBINARY(16) NOT NULL,
+  PRIMARY KEY(uuid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_bin;
-
 
 CREATE TABLE rrd_datasource (
   datasource_list_uuid VARBINARY(16) NOT NULL,
@@ -774,7 +730,6 @@ CREATE TABLE rrd_datasource (
     ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_bin;
 
-
 -- measurement = file
 CREATE TABLE rrd_file (
   uuid VARBINARY(16) NOT NULL,
@@ -783,7 +738,7 @@ CREATE TABLE rrd_file (
   device_uuid VARBINARY(16) NULL DEFAULT NULL,
   measurement_name VARCHAR(64) NULL DEFAULT NULL,
   instance VARCHAR(255) NULL DEFAULT NULL,
-    -- tags TEXT NULL DEFAULT NULL,
+  tags TEXT NULL DEFAULT NULL,
   filename VARCHAR(40) NOT NULL,
   -- filename VARCHAR(160) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   rrd_step INT(10) UNSIGNED NOT NULL COMMENT 'Step size, e.g. 60, 300',
@@ -796,6 +751,7 @@ CREATE TABLE rrd_file (
 
   -- partition, host, ciname... ?
   PRIMARY KEY (uuid),
+  INDEX search_ci (device_uuid, measurement_name, instance(128)),
   -- UNIQUE INDEX file_idx (rrd_instance_id, filename),
   CONSTRAINT rrd_file_rrd_archive_set
     FOREIGN KEY rrd_archive_set (rrd_archive_set_checksum)
@@ -809,18 +765,6 @@ CREATE TABLE rrd_file (
       ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_bin;
 
-
-ALTER TABLE datanode
-  ADD COLUMN db_stream_position VARCHAR(21) NULL DEFAULT NULL AFTER label,
-  ADD COLUMN db_stream_error TEXT DEFAULT NULL AFTER db_stream_position;
-UPDATE datanode SET db_stream_position = '0-0';
-ALTER TABLE datanode
-  MODIFY COLUMN db_stream_position VARCHAR(21) NOT NULL;
-
-ALTER TABLE snmp_interface_config
-  MODIFY COLUMN if_type MEDIUMINT(8) UNSIGNED NULL DEFAULT NULL;
-
-
 CREATE TABLE data_autonomous_system (
   asn INT(10) UNSIGNED NOT NULL,
   handle VARCHAR(128) NOT NULL,
@@ -830,26 +774,6 @@ CREATE TABLE data_autonomous_system (
   INDEX idx_search2 (description)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
-
-ALTER TABLE inventory_physical_entity
-  MODIFY COLUMN class ENUM(
-    'other',        --  1
-    'unknown',      --  2
-    'chassis',      --  3
-    'backplane',    --  4
-    'container',    --  5
-    'powerSupply',  --  6
-    'fan',          --  7
-    'sensor',       --  8
-    'module',       --  9
-    'port',         -- 10
-    'stack',        -- 11
-    'cpu',          -- 12
-    'energyObject', -- 13
-    'battery',      -- 14
-    'storageDrive'  -- 15
-  ) NULL DEFAULT 'unknown';
-
 CREATE TABLE data_ip_country_lite (
   ip_family ENUM('IPv4', 'IPv6') NOT NULL,
   ip_range_from VARBINARY(16) NOT NULL,
@@ -858,14 +782,6 @@ CREATE TABLE data_ip_country_lite (
   PRIMARY KEY (ip_family, ip_range_from),
   INDEX idx_additional (ip_family, ip_range_from, ip_range_to)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
-
--- TODO: Do we really need the node UUID here? -> PollInterfaceConfig
-ALTER TABLE snmp_interface_config
-  ADD COLUMN datanode_uuid VARBINARY(16) NOT NULL AFTER system_uuid;
-
--- TODO: really?
-ALTER TABLE rrd_file
-  ADD COLUMN tags TEXT NULL DEFAULT NULL AFTER instance;
 
 CREATE TABLE schema_migration (
   schema_version SMALLINT UNSIGNED NOT NULL,
@@ -897,4 +813,4 @@ CREATE TABLE daemon_info (
 
 INSERT INTO schema_migration
   (schema_version, component_name, migration_time)
-VALUES (1, 'inventory', NOW());
+VALUES (10, 'inventory', NOW());
