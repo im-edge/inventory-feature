@@ -63,6 +63,7 @@ class DaemonProcessDetails
             'php_integer_size'     => PHP_INT_SIZE,
             'php_binary_path'      => PHP_BINARY,
             'php_binary_realpath'  => \realpath(PHP_BINARY), // TODO: useless?
+            'process_info'         => '{}',
         ];
     }
 }
