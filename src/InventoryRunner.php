@@ -5,11 +5,12 @@ namespace IMEdge\InventoryFeature;
 use IMEdge\InventoryFeature\Db\DbConnection;
 use IMEdge\Node\Application;
 use IMEdge\Node\Feature;
+use IMEdge\Node\Features;
 use IMEdge\Node\Worker\WorkerInstance;
+use IMEdge\SnmpFeature\SnmpApi;
 use Psr\Log\LoggerInterface;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
-use Revolt\EventLoop;
 
 class InventoryRunner
 {
@@ -27,7 +28,6 @@ class InventoryRunner
     {
         $this->worker = $this->feature->workerInstances->launchWorker('inventory-db', Uuid::uuid4());
         $this->worker->run(InventoryStreamer::class, $this->feature->settings);
-        EventLoop::delay(1.5, $this->shipLocalSnmpCredentials(...));
         $this->registerNode($this->feature->nodeIdentifier->uuid, $this->feature->nodeIdentifier->name);
     }
 
@@ -51,31 +51,32 @@ class InventoryRunner
         }
     }
 
-    public function shipLocalSnmpCredentials(): void
+    public function onFeaturesReady(Features $features): void
     {
-        // TODO: redesign this
-        if ($api = $this->getLocalSnmpApi()) {
-            $this->logger->notice('InventoryRunner found SNMP when starting up, loading credentials');
-            $localCredentials = CredentialLoader::fetchAllForDataNode($this->feature->nodeIdentifier->uuid, $this->db);
-            try {
-                $api->setCredentials($localCredentials);
-            } catch (\Exception $e) {
-                $this->logger->error('Sending SNMP credentials failed (InventoryRunner): ' . $e->getMessage());
+        foreach ($features->getLoaded() as $feature) {
+            if ($feature->name === 'snmp') {
+                foreach ($feature->getRegisteredRpcApis() as $api) {
+                    // TODO: Check reflection -> ApiNamespace
+                    if (method_exists($api, 'setCredentials')) {
+                        $this->foundLocalSnmpApi($api);
+                    }
+                }
             }
-        } else {
-            $this->logger->notice('InventoryRunner found no SNMP when starting up');
         }
     }
 
-    protected function getLocalSnmpApi(): ?object
+    protected function foundLocalSnmpApi(SnmpApi $api): void
     {
-        foreach ($this->feature->getRegisteredRpcApis() as $api) {
-            // TODO: Check reflection -> ApiNamespace
-            if (method_exists($api, 'setCredentialsRequest')) {
-                return $api;
-            }
+        $this->logger->debug('InventoryRunner found SNMP API once all features got loaded');
+        try {
+            $api->setCredentials(
+                CredentialLoader::fetchAllForDataNode($this->feature->nodeIdentifier->uuid, $this->db)
+            );
+            $api->setKnownTargets(
+                TargetLoader::fetchAllForDataNode($this->feature->nodeIdentifier->uuid, $this->db)
+            );
+        } catch (\Exception $e) {
+            $this->logger->error('Sending SNMP credentials failed (InventoryRunner): ' . $e->getMessage());
         }
-
-        return null;
     }
 }

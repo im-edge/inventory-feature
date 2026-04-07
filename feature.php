@@ -10,7 +10,6 @@ use IMEdge\Node\Feature;
 use IMEdge\InventoryFeature\ConnectionSubscriber;
 use IMEdge\InventoryFeature\Db\DbConnection;
 use IMEdge\InventoryFeature\InventoryRunner;
-use IMEdge\InventoryFeature\RpcSubscriber;
 use Revolt\EventLoop;
 
 $settings = $this->settings;
@@ -24,5 +23,5 @@ $db = new DbConnection(
 $runner = new InventoryRunner($this, $db, $this->logger);
 EventLoop::queue($runner->run(...)); // Order matters
 $this->onShutdown($runner->stop(...));
-$this->subscribeRpcRegistrations(new RpcSubscriber($this->nodeIdentifier, $db, $this->logger));
 $this->subscribeConnections(new ConnectionSubscriber($runner, $this->nodeIdentifier, $db, $this->logger));
+$this->onFeaturesReady($runner->onFeaturesReady(...));

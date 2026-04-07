@@ -67,19 +67,16 @@ class ConnectionSubscriber implements ConnectionSubscriberInterface
             }
 
             if (isset($methods['snmp.setCredentials'])) {
-                $credentials = array_map(function ($row) {
-                    return SnmpCredential::fromDbRow($row);
-                }, CredentialLoader::fetchAllForDataNode($uuid, $this->db));
-                $this->logger->notice(sprintf('Sending %d credentials to %s', count($credentials), $hexUuid));
                 try {
                     $connection->request('snmp.setCredentials', (object) [
-                        'credentials' => $credentials,
+                        'credentials' => CredentialLoader::fetchAllForDataNode($uuid, $this->db),
                     ]);
                 } catch (Exception $e) {
                     $this->logger->error('Sending SNMP credentials failed: ' . $e->getMessage());
                 }
             } else {
-                $this->logger->notice(sprintf('Peer %s has no SNMP support', $hexUuid));
+                // e.g. local metric store
+                $this->logger->notice(sprintf('Peer %s (%s) has no SNMP support', $hexUuid, $name));
             }
 
             if (isset($methods['node.streamDbChanges'])) {
