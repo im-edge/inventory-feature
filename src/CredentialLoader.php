@@ -8,7 +8,7 @@ use Ramsey\Uuid\UuidInterface;
 
 class CredentialLoader
 {
-    public static function fetchAllForDataNode(UuidInterface $uuid, DbConnection $db): array
+    public static function fetchAllForDataNode(UuidInterface $uuid, DbConnection $db): SnmpCredentials
     {
         $sql1 = 'SELECT DISTINCT c.* FROM snmp_credential c'
             . ' JOIN snmp_agent a ON a.credential_uuid = c.credential_uuid'
