@@ -4,16 +4,34 @@ namespace IMEdge\InventoryFeature;
 
 use Amp\Socket\InternetAddress;
 use IMEdge\InventoryFeature\Db\DbConnection;
-use IMEdge\SnmpFeature\Capability\CapabilitySet;
+use IMEdge\SnmpFeature\SnmpCredentials;
 use IMEdge\SnmpFeature\SnmpScenario\SnmpTarget;
 use IMEdge\SnmpFeature\SnmpScenario\SnmpTargets;
 use IMEdge\SnmpFeature\SnmpScenario\TargetState;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
 
-class TargetLoader
+/**
+ * Loads data for local and remote nodes with an enabled SNMP feature
+ *
+ * We should find a clean way to hook such logic
+ */
+class SnmpFeatureLoader
 {
-    public static function fetchAllForDataNode(UuidInterface $uuid, DbConnection $db): SnmpTargets
+    public static function fetchCredentials(UuidInterface $nodeUuid, DbConnection $db): SnmpCredentials
+    {
+        $sql1 = 'SELECT DISTINCT c.* FROM snmp_credential c'
+            . ' JOIN snmp_agent a ON a.credential_uuid = c.credential_uuid'
+            . ' WHERE a.datanode_uuid = ' . self::escapeBinary($nodeUuid->getBytes());
+        $sql2 = 'SELECT DISTINCT c.* FROM snmp_credential c'
+            . ' JOIN snmp_discovery_candidate dc ON dc.credential_uuid = c.credential_uuid'
+            . ' WHERE dc.datanode_uuid = ' . self::escapeBinary($nodeUuid->getBytes());
+        $sql = "SELECT * FROM ($sql1 UNION ALL $sql2) sub GROUP BY credential_uuid";
+
+        return SnmpCredentials::fromSerialization($db->fetchAll($sql));
+    }
+
+    public static function fetchTargets(UuidInterface $nodeUuid, DbConnection $db): SnmpTargets
     {
         $sql = 'SELECT'
             . ' a.agent_uuid, a.ip_address, a.snmp_port, a.credential_uuid, sth.state'
@@ -21,7 +39,7 @@ class TargetLoader
             . " JOIN system_lifecycle lc ON lc.uuid = a.lifecycle_uuid"
             . " AND (lc.enable_monitoring = 'y' OR lc.enable_discovery = 'y')"
             . ' LEFT JOIN snmp_target_health sth ON sth.uuid = a.agent_uuid'
-            . ' WHERE a.datanode_uuid = ' . self::escapeBinary($uuid->getBytes())
+            . ' WHERE a.datanode_uuid = ' . self::escapeBinary($nodeUuid->getBytes())
             . ' ORDER BY ip_address';
 
         $targets = [];

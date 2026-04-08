@@ -69,7 +69,7 @@ class ConnectionSubscriber implements ConnectionSubscriberInterface
             if (isset($methods['snmp.setCredentials'])) {
                 try {
                     $connection->request('snmp.setCredentials', (object) [
-                        'credentials' => CredentialLoader::fetchAllForDataNode($uuid, $this->db),
+                        'credentials' => SnmpFeatureLoader::fetchCredentials($uuid, $this->db),
                     ]);
                 } catch (Exception $e) {
                     $this->logger->error('Sending SNMP credentials failed: ' . $e->getMessage());

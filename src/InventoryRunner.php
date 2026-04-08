@@ -70,10 +70,10 @@ class InventoryRunner
         $this->logger->debug('InventoryRunner found SNMP API once all features got loaded');
         try {
             $api->setCredentials(
-                CredentialLoader::fetchAllForDataNode($this->feature->nodeIdentifier->uuid, $this->db)
+                SnmpFeatureLoader::fetchCredentials($this->feature->nodeIdentifier->uuid, $this->db)
             );
             $api->setKnownTargets(
-                TargetLoader::fetchAllForDataNode($this->feature->nodeIdentifier->uuid, $this->db)
+                SnmpFeatureLoader::fetchTargets($this->feature->nodeIdentifier->uuid, $this->db)
             );
         } catch (\Exception $e) {
             $this->logger->error('Sending SNMP credentials failed (InventoryRunner): ' . $e->getMessage());
