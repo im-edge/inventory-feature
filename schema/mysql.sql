@@ -719,6 +719,7 @@ CREATE TABLE data_autonomous_system (
   asn INT(10) UNSIGNED NOT NULL,
   handle VARCHAR(128) NOT NULL,
   description varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  country_code CHAR(2) NOT NULL,
   PRIMARY KEY (asn),
   INDEX idx_search (handle(64), description(128)),
   INDEX idx_search2 (description)
@@ -763,4 +764,4 @@ CREATE TABLE daemon_info (
 
 INSERT INTO schema_migration
   (schema_version, component_name, migration_time)
-VALUES (12, 'inventory', NOW());
+VALUES (13, 'inventory', NOW());
