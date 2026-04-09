@@ -63,8 +63,7 @@ class InventoryRunner
         foreach ($features->getLoaded() as $feature) {
             if ($feature->name === 'snmp') {
                 foreach ($feature->getRegisteredRpcApis() as $api) {
-                    // TODO: Check reflection -> ApiNamespace
-                    if (method_exists($api, 'setCredentials')) {
+                    if ($api instanceof SnmpApi) {
                         $this->foundLocalSnmpApi($api);
                     }
                 }
