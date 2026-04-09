@@ -5,12 +5,10 @@
  *
  * @var Feature $this
  */
-
 use IMEdge\Node\Feature;
 use IMEdge\InventoryFeature\ConnectionSubscriber;
 use IMEdge\InventoryFeature\Db\DbConnection;
 use IMEdge\InventoryFeature\InventoryRunner;
-use Revolt\EventLoop;
 
 $settings = $this->settings;
 
@@ -21,8 +19,8 @@ $db = new DbConnection(
 );
 
 $runner = new InventoryRunner($this, $db, $this->logger);
-EventLoop::queue($runner->run(...)); // Order matters
 $this->onShutdown($runner->stop(...));
 $this->subscribeConnections(new ConnectionSubscriber($runner, $this->nodeIdentifier, $db, $this->logger));
 $this->onFeaturesReady($runner->onFeaturesReady(...));
+$runner->run();
 $this->registerRpcApi($runner);
