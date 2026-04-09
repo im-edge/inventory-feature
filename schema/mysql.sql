@@ -30,7 +30,7 @@ CREATE TABLE datanode (
   uuid VARBINARY(16) NOT NULL,
   label VARCHAR(255) CHARACTER SET ascii COLLATE ascii_general_ci NOT NULL,
   db_stream_position VARCHAR(21) NOT NULL,
-  COLUMN db_stream_error TEXT DEFAULT NULL,
+  db_stream_error TEXT DEFAULT NULL,
   -- config TEXT NULL DEFAULT NULL,
   -- TODO: node_health, last_seen?
   -- TODO: node_type: node, sub-process
@@ -462,60 +462,6 @@ CREATE TABLE snmp_credential (
   UNIQUE KEY credential_name (credential_name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_bin;
 
-CREATE TABLE snmp_agent (
-  agent_uuid VARBINARY(16) NOT NULL,
-  credential_uuid VARBINARY(16) NOT NULL,
-  datanode_uuid VARBINARY(16) NULL DEFAULT NULL,
-  lifecycle_uuid VARBINARY(16) NOT NULL,
-  environment_uuid VARBINARY(16) NOT NULL,
-  engine_boots INT(10) NULL DEFAULT NULL,
-  ip_address VARBINARY(16) NOT NULL,
-  ip_protocol ENUM('ipv4','ipv6') NOT NULL, -- TODO: remove
-  snmp_port SMALLINT(5) UNSIGNED NOT NULL DEFAULT '161',
-  label VARCHAR(255) NULL DEFAULT NULL,
-  engine_id VARBINARY(64) DEFAULT NULL, -- it is absolutely essential, that this is unique! auto-configured by the device
-  engine_boot_count BIGINT(20) UNSIGNED DEFAULT NULL, -- required for v3 auth
-  engine_boot_time BIGINT(20) UNSIGNED NULL DEFAULT NULL, -- convert sys_uptime?
-  sys_name VARCHAR(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
-  -- Long sys_descr example:
-  -- Cisco IOS Software, C3750E Software (C3750E-UNIVERSALK9-M), Version 12.2(55)SE7,
-  --  RELEASE SOFTWARE (fc1) Technical Support: http://www.cisco.com/techsupport
-  --  Copyright (c) 1986-2013 by Cisco Systems, Inc. Compiled Mon 28-Jan-13 09:55
-  --  by prod_rel_team
-  sys_descr VARCHAR(255) DEFAULT NULL,
-  -- refers products. Cisco example (CISCO-PRODUCTS-MIB):
-  -- 1.3.6.1.4.1.9.1.516 = catalyst37xxStack
-  --   catalyst37xxStack OBJECT IDENTIFIER ::= { ciscoProducts 516 } -- A stack
-  --   of any catalyst37xx stack-able ethernet switches with unified identity
-  --   (as a single unified switch), control and management.
-  sys_object_id VARCHAR(255) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
-  sys_contact VARCHAR(255) DEFAULT NULL,
-  sys_location TEXT DEFAULT NULL,
-  sys_services TINYINT(3) UNSIGNED DEFAULT NULL,
-
-  manufacturer_name VARCHAR(64) DEFAULT NULL,
-  model_name VARCHAR(128) DEFAULT NULL,
-  serial_number VARCHAR(64) DEFAULT NULL,
-
-  -- last_seen DATETIME DEFAULT NULL,
-  state ENUM(
-    'ok',
-    'unreachable',
-    'discovered',
-    'blacklisted'
-  ) NOT NULL,
-  PRIMARY KEY (agent_uuid),
-  CONSTRAINT snmp_agent_credential
-    FOREIGN KEY (credential_uuid)
-    REFERENCES snmp_credential (credential_uuid),
-  CONSTRAINT snmp_agent_lifecycle
-    FOREIGN KEY (lifecycle_uuid)
-    REFERENCES system_lifecycle (uuid),
-  CONSTRAINT snmp_agent_environment
-    FOREIGN KEY (environment_uuid)
-    REFERENCES system_environment (uuid)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_bin;
-
 CREATE TABLE snmp_target_health (
   uuid VARBINARY(16) NOT NULL,
   state ENUM('pending', 'reachable', 'failing') NOT NULL,
@@ -643,6 +589,7 @@ CREATE TABLE snmp_agent (
   credential_uuid VARBINARY(16) NOT NULL,
   datanode_uuid VARBINARY(16) NULL DEFAULT NULL,
   lifecycle_uuid VARBINARY(16) NOT NULL,
+  environment_uuid VARBINARY(16) NOT NULL,
   ip_address VARBINARY(16) NOT NULL,
   ip_protocol ENUM('ipv4','ipv6') NOT NULL, -- TODO: remove
   snmp_port SMALLINT(5) UNSIGNED NOT NULL DEFAULT '161',
@@ -653,7 +600,10 @@ CREATE TABLE snmp_agent (
     REFERENCES snmp_credential (credential_uuid),
   CONSTRAINT snmp_agent_lifecycle
     FOREIGN KEY (lifecycle_uuid)
-    REFERENCES system_lifecycle (uuid)
+    REFERENCES system_lifecycle (uuid),
+  CONSTRAINT snmp_agent_environment
+    FOREIGN KEY (environment_uuid)
+    REFERENCES system_environment (uuid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_bin;
 
 CREATE TABLE rrd_archive_set (
@@ -813,4 +763,4 @@ CREATE TABLE daemon_info (
 
 INSERT INTO schema_migration
   (schema_version, component_name, migration_time)
-VALUES (10, 'inventory', NOW());
+VALUES (12, 'inventory', NOW());
