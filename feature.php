@@ -25,3 +25,4 @@ EventLoop::queue($runner->run(...)); // Order matters
 $this->onShutdown($runner->stop(...));
 $this->subscribeConnections(new ConnectionSubscriber($runner, $this->nodeIdentifier, $db, $this->logger));
 $this->onFeaturesReady($runner->onFeaturesReady(...));
+$this->registerRpcApi($runner);

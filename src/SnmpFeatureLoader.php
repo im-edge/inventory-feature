@@ -3,23 +3,28 @@
 namespace IMEdge\InventoryFeature;
 
 use Amp\Socket\InternetAddress;
-use IMEdge\InventoryFeature\Db\DbConnection;
+use IMEdge\InventoryFeature\Db\DbBasedComponent;
+use IMEdge\PDO\PDO;
 use IMEdge\SnmpFeature\SnmpCredentials;
 use IMEdge\SnmpFeature\SnmpScenario\SnmpTarget;
 use IMEdge\SnmpFeature\SnmpScenario\SnmpTargets;
 use IMEdge\SnmpFeature\SnmpScenario\TargetState;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
+use RuntimeException;
 
 /**
  * Loads data for local and remote nodes with an enabled SNMP feature
  *
  * We should find a clean way to hook such logic
  */
-class SnmpFeatureLoader
+class SnmpFeatureLoader implements DbBasedComponent
 {
-    public static function fetchCredentials(UuidInterface $nodeUuid, DbConnection $db): SnmpCredentials
+    protected ?PDO $db = null;
+
+    public function fetchCredentials(UuidInterface $nodeUuid): SnmpCredentials
     {
+        $db = $this->db ?? throw new RuntimeException('DB is not ready');
         $sql1 = 'SELECT DISTINCT c.* FROM snmp_credential c'
             . ' JOIN snmp_agent a ON a.credential_uuid = c.credential_uuid'
             . ' WHERE a.datanode_uuid = ' . self::escapeBinary($nodeUuid->getBytes());
@@ -31,8 +36,9 @@ class SnmpFeatureLoader
         return SnmpCredentials::fromSerialization($db->fetchAll($sql));
     }
 
-    public static function fetchTargets(UuidInterface $nodeUuid, DbConnection $db): SnmpTargets
+    public function fetchTargets(UuidInterface $nodeUuid): SnmpTargets
     {
+        $db = $this->db ?? throw new RuntimeException('DB is not ready');
         $sql = 'SELECT'
             . ' a.agent_uuid, a.ip_address, a.snmp_port, a.credential_uuid, sth.state'
             . ' FROM snmp_agent a'
@@ -60,5 +66,15 @@ class SnmpFeatureLoader
     protected static function escapeBinary(string $binary): string
     {
         return '0x' . bin2hex($binary);
+    }
+
+    public function initDb(PDO $db): void
+    {
+        $this->db = $db;
+    }
+
+    public function stopDb(): void
+    {
+        $this->db = null;
     }
 }

@@ -7,15 +7,22 @@ use IMEdge\Node\Application;
 use IMEdge\Node\Feature;
 use IMEdge\Node\Features;
 use IMEdge\Node\Worker\WorkerInstance;
+use IMEdge\RpcApi\ApiMethod;
+use IMEdge\RpcApi\ApiNamespace;
 use IMEdge\SnmpFeature\SnmpApi;
+use IMEdge\SnmpFeature\SnmpCredentials;
+use IMEdge\SnmpFeature\SnmpScenario\SnmpTargets;
 use Psr\Log\LoggerInterface;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
+use RuntimeException;
 
+#[ApiNamespace('inventory')]
 class InventoryRunner
 {
     protected bool $logActivities = true;
-    protected ?WorkerInstance $worker = null;
+    protected ?WorkerInstance $streamer = null;
+    protected SnmpApi $snmpApi;
 
     public function __construct(
         public readonly Feature $feature,
@@ -26,15 +33,15 @@ class InventoryRunner
 
     public function run(): void
     {
-        $this->worker = $this->feature->workerInstances->launchWorker('inventory-db', Uuid::uuid4());
-        $this->worker->run(InventoryStreamer::class, $this->feature->settings);
+        $this->streamer = $this->feature->workerInstances->launchWorker('inventory-streamer', Uuid::uuid4());
+        $this->streamer->run(InventoryStreamer::class, $this->feature->settings);
         $this->registerNode($this->feature->nodeIdentifier->uuid, $this->feature->nodeIdentifier->name);
     }
 
     public function stop(): void
     {
-        $this->worker?->stop();
-        $this->worker = null;
+        $this->streamer?->stop();
+        $this->streamer = null;
     }
 
     public function registerNode(UuidInterface $uuid, string $name): void
@@ -65,18 +72,57 @@ class InventoryRunner
         }
     }
 
+    // TODO: same for remote
+    #[ApiMethod]
+    public function shipConfigForLocalFeatures(): bool
+    {
+        return $this->shipLocalSnmpCredentials() && $this->shipLocalSnmpTargets();
+    }
+
+    #[ApiMethod]
+    public function shipLocalSnmpCredentials(): bool
+    {
+        return $this->snmpApi->setCredentials($this->fetchSnmpCredentials());
+    }
+
+    #[ApiMethod]
+    public function shipLocalSnmpTargets(): bool
+    {
+        return $this->snmpApi->setKnownTargets($this->fetchSnmpTargets());
+    }
+
+    protected function fetchSnmpCredentials(): SnmpCredentials
+    {
+        if ($this->streamer === null) {
+            throw new RuntimeException('InventoryRunner has no inventoryStreamer');
+        }
+        // Why not:
+        // return $this->streamer->jsonRpc->request('inventoryStreamer.fetchSnmpCredentials');
+        return SnmpCredentials::fromSerialization(
+            $this->streamer->jsonRpc->request('inventoryStreamer.fetchSnmpCredentials')
+        );
+    }
+
+    protected function fetchSnmpTargets(): SnmpTargets
+    {
+        if ($this->streamer === null) {
+            throw new RuntimeException('InventoryRunner has no inventoryStreamer');
+        }
+        // Why not:
+        // return $this->streamer->jsonRpc->request('inventoryStreamer.fetchSnmpTargets');
+        return SnmpTargets::fromSerialization($this->streamer->jsonRpc->request('inventoryStreamer.fetchSnmpTargets'));
+    }
+
     protected function foundLocalSnmpApi(SnmpApi $api): void
     {
-        $this->logger->debug('InventoryRunner found SNMP API once all features got loaded');
-        try {
-            $api->setCredentials(
-                SnmpFeatureLoader::fetchCredentials($this->feature->nodeIdentifier->uuid, $this->db)
-            );
-            $api->setKnownTargets(
-                SnmpFeatureLoader::fetchTargets($this->feature->nodeIdentifier->uuid, $this->db)
-            );
-        } catch (\Exception $e) {
-            $this->logger->error('Sending SNMP credentials failed (InventoryRunner): ' . $e->getMessage());
+        $this->snmpApi = $api;
+        if ($this->streamer === null) {
+            $this->logger->notice('InventoryRunner found SNMP API, but has not DB worker');
+            return;
         }
+        $rpc = $this->streamer->jsonRpc;
+        // SnmpFeatureLoader::fetchCredentials($this->feature->nodeIdentifier->uuid, $this->db)
+        $this->logger->debug('InventoryRunner found SNMP API once all features got loaded');
+        $this->shipConfigForLocalFeatures();
     }
 }

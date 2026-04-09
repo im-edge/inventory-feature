@@ -7,14 +7,18 @@ use IMEdge\Inventory\NodeIdentifier;
 use IMEdge\InventoryFeature\Db\DbHandler;
 use IMEdge\Node\ApplicationContext;
 use IMEdge\Node\ImedgeWorker;
+use IMEdge\RpcApi\ApiMethod;
 use IMEdge\RpcApi\ApiNamespace;
+use IMEdge\SnmpFeature\SnmpCredentials;
+use IMEdge\SnmpFeature\SnmpScenario\SnmpTargets;
 use Psr\Log\LoggerInterface;
 
-#[ApiNamespace('inventoryDb')]
+#[ApiNamespace('inventoryStreamer')]
 class InventoryStreamer implements ImedgeWorker
 {
     protected ?DbStreamWriter $writer = null;
     protected ?DbStreamReader $reader = null;
+    protected ?SnmpFeatureLoader $loader = null;
     protected DbHandler $dbHandler;
 
     public function __construct(
@@ -24,9 +28,21 @@ class InventoryStreamer implements ImedgeWorker
     ) {
     }
 
+    #[ApiMethod]
+    public function fetchSnmpCredentials(): SnmpCredentials
+    {
+        return $this->loader->fetchCredentials($this->nodeIdentifier->uuid);
+    }
+
+    #[ApiMethod]
+    public function fetchSnmpTargets(): SnmpTargets
+    {
+        return $this->loader->fetchTargets($this->nodeIdentifier->uuid);
+    }
+
     public function getApiInstances(): array
     {
-        return [];
+        return [$this];
     }
 
     public function start(): void
@@ -45,6 +61,8 @@ class InventoryStreamer implements ImedgeWorker
             $this->settings->getRequired('password')
         );
         $this->dbHandler->register($this->writer);
+        $this->loader = new SnmpFeatureLoader();
+        $this->dbHandler->register($this->loader);
         $this->reader = new DbStreamReader(
             ApplicationContext::getRedisSocket(),
             $this->writer,
@@ -61,5 +79,6 @@ class InventoryStreamer implements ImedgeWorker
         $this->dbHandler->disconnect();
         $this->reader = null;
         $this->writer = null;
+        $this->loader = null;
     }
 }
