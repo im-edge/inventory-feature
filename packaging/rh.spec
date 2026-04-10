@@ -32,7 +32,7 @@ rm -rf %{buildroot}
 mkdir -p %{buildroot}
 mkdir -p %{buildroot}%{basedir}
 cd - # ???
-cp -pr src vendor feature.php %{buildroot}%{basedir}/
+cp -pr schema src vendor feature.php %{buildroot}%{basedir}/
 
 %clean
 rm -rf %{buildroot}
