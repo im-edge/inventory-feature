@@ -109,6 +109,7 @@ class DbStreamWriter implements DbBasedComponent
                         $this->db->getLastSqlStatement(),
                         $e->getMessage()
                     ));
+                    $streamPositions[$streamName] = $streamPosition;
                 } else {
                     $this->logger->error('Failed query: ' . $this->db->getLastSqlStatement());
                     $this->setSyncError($nodeUuid, $streamPositions[$streamName], $e);
