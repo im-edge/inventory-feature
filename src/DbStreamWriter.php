@@ -181,7 +181,6 @@ class DbStreamWriter implements DbBasedComponent
     protected function storeInventoryAction(InventoryAction $action): void
     {
         $table = $action->tableName;
-        $values = $action->getAllDbValues();
         $keyProperties = $action->getDbKeyProperties();
         if ($action->action === InventoryActionType::DELETE) {
             if ($keyProperties === ['uuid' => null]) {
@@ -204,7 +203,7 @@ class DbStreamWriter implements DbBasedComponent
         $rowCount = match ($action->action) {
             InventoryActionType::CREATE => $this->db->insert(
                 $table,
-                $values
+                $action->getAllDbValues()
             ),
             InventoryActionType::UPDATE => $this->db->update(
                 $table,
