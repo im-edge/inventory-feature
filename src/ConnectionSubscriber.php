@@ -5,7 +5,6 @@ namespace IMEdge\InventoryFeature;
 use Amp\ByteStream\ClosedException;
 use Amp\Redis\Protocol\QueryException;
 use Exception;
-use IMEdge\InventoryFeature\Db\DbConnection;
 use IMEdge\Inventory\NodeIdentifier;
 use IMEdge\JsonRpc\JsonRpcConnection;
 use IMEdge\Node\Network\ConnectionSubscriberInterface;
@@ -26,7 +25,6 @@ class ConnectionSubscriber implements ConnectionSubscriberInterface
     public function __construct(
         protected InventoryRunner $runner,
         protected NodeIdentifier $nodeIdentifier,
-        protected DbConnection $db,
         protected LoggerInterface $logger,
     ) {
     }

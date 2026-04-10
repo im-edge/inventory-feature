@@ -4,11 +4,13 @@ namespace IMEdge\InventoryFeature;
 
 use Amp\Socket\InternetAddress;
 use IMEdge\InventoryFeature\Db\DbBasedComponent;
+use IMEdge\Node\Application;
 use IMEdge\PDO\PDO;
 use IMEdge\SnmpFeature\SnmpCredentials;
 use IMEdge\SnmpFeature\SnmpScenario\SnmpTarget;
 use IMEdge\SnmpFeature\SnmpScenario\SnmpTargets;
 use IMEdge\SnmpFeature\SnmpScenario\TargetState;
+use Psr\Log\LoggerInterface;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
 use RuntimeException;
@@ -21,6 +23,11 @@ use RuntimeException;
 class SnmpFeatureLoader implements DbBasedComponent
 {
     protected ?PDO $db = null;
+
+    public function __construct(
+        protected LoggerInterface $logger
+    ) {
+    }
 
     public function fetchCredentials(UuidInterface $nodeUuid): SnmpCredentials
     {
@@ -61,6 +68,21 @@ class SnmpFeatureLoader implements DbBasedComponent
         }
 
         return new SnmpTargets($targets);
+    }
+
+    public function registerNode(UuidInterface $uuid, string $name): void
+    {
+        $db = $this->db ?? throw new RuntimeException('DB is not ready');
+        $binaryUuid = $uuid->getBytes();
+        $current = $db->fetchAll('SELECT uuid FROM datanode WHERE uuid = ?' . self::escapeBinary($binaryUuid));
+        if (empty($current)) {
+            $db->insert('datanode', [
+                'uuid'  => $binaryUuid,
+                'label' => $name,
+                'db_stream_position' => '0-0',
+            ]);
+            $this->logger->notice(sprintf('%s has been registered in the database', Application::PROCESS_NAME));
+        }
     }
 
     protected static function escapeBinary(string $binary): string

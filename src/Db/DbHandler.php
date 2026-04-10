@@ -9,7 +9,6 @@ use IMEdge\Async\RetryingFuture;
 use IMEdge\DbMigration\Migrations;
 use IMEdge\InventoryFeature\State\DaemonProcessDetails;
 use IMEdge\PDO\PDO;
-use IMEdge\SimpleDaemon\Process;
 use Psr\Log\LoggerInterface;
 use Ramsey\Uuid\Uuid;
 use Revolt\EventLoop;

@@ -26,7 +26,6 @@ class InventoryRunner
 
     public function __construct(
         public readonly Feature $feature,
-        protected readonly DbConnection $db,
         protected readonly LoggerInterface $logger,
     ) {
     }
@@ -35,7 +34,10 @@ class InventoryRunner
     {
         $this->streamer = $this->feature->workerInstances->launchWorker('inventory-streamer', Uuid::uuid4());
         $this->streamer->run(InventoryStreamer::class, $this->feature->settings);
-        $this->registerNode($this->feature->nodeIdentifier->uuid, $this->feature->nodeIdentifier->name);
+        $this->streamer->jsonRpc->request('inventoryStreamer.registerNode', [
+            $this->feature->nodeIdentifier->uuid,
+            $this->feature->nodeIdentifier->name
+        ]);
     }
 
     public function stop(): void
@@ -46,16 +48,10 @@ class InventoryRunner
 
     public function registerNode(UuidInterface $uuid, string $name): void
     {
-        $binaryUuid = $uuid->getBytes();
-        $current = $this->db->fetchRow('SELECT uuid FROM datanode WHERE uuid = ?', [$binaryUuid]);
-        if ($current === null) {
-            $this->db->insert('datanode', [
-                'uuid'  => $binaryUuid,
-                'label' => $name,
-                'db_stream_position' => '0-0',
-            ]);
-            $this->logger->notice(sprintf('%s has been registered in the database', Application::PROCESS_NAME));
-        }
+        $this->streamer->jsonRpc->request('inventoryStreamer.registerNode', [
+            $uuid,
+            $name
+        ]);
     }
 
     public function onFeaturesReady(Features $features): void
