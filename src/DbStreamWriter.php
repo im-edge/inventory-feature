@@ -151,18 +151,25 @@ class DbStreamWriter implements DbBasedComponent
                 ]);
             }
 
-            $this->logger->notice(sprintf(
-                'Prepared %d queries in %.02fms',
-                $cntQueries,
-                (microtime(true) - $start) * 1000
-            ));
+            $prepareDuration = (microtime(true) - $start) * 1000;
+            if ($prepareDuration > 500) {
+                $this->logger->notice(sprintf(
+                    'Slow DB: prepared %d queries in %.02fms, seems slow',
+                    $cntQueries,
+                    $prepareDuration
+                ));
+            }
+            $start = microtime(true);
             $db->commit();
+            $commitDuration = (microtime(true) - $start) * 1000;
             $this->streamPositions = $streamPositions;
-            $this->logger->notice(sprintf(
-                'COMMITTED %d queries in %.02fms',
-                $cntQueries,
-                (microtime(true) - $start) * 1000
-            ));
+            if ($commitDuration > 2000) {
+                $this->logger->notice(sprintf(
+                    'Slow DB: committed %d queries in %.02fms',
+                    $cntQueries,
+                    $commitDuration
+                ));
+            }
         } catch (PDOException $e) {
             $this->logger->error('COMMIT failed: ' . $e->getMessage());
             try {
