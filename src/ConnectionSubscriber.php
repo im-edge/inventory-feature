@@ -33,6 +33,8 @@ class ConnectionSubscriber implements ConnectionSubscriberInterface
 
     public function activateConnection(string $hexUuid, JsonRpcConnection $connection, RpcPeerType $peerType): void
     {
+        // TODO: use RPC to fetch, disabled for beta tag
+        return;
         if (isset($this->gotPeers[$hexUuid])) {
             $this->logger->notice('Avoiding connection from being activated twice. This is a bug');
             return;
