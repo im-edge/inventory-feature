@@ -187,6 +187,18 @@ class DbStreamWriter implements DbBasedComponent
             if ($keyProperties === ['uuid' => null]) {
                 // Workaround for RRD file deletion for now
                 $keyProperties = ['uuid' => Uuid::fromString($action->key)->getBytes()];
+            } else {
+                $where = [];
+                $keyParts = explode('/', $action->key);
+                foreach (array_keys($keyProperties) as $idx => $keyProperty) {
+                    $keyValue = $keyParts[$idx];
+                    if ('' !== $keyValue && str_ends_with($keyProperty, 'uuid')) {
+                        $where[$keyProperty] = Uuid::fromString($keyValue)->getBytes();
+                    } else {
+                        $where[$keyProperty] = $keyValue;
+                    }
+                }
+                $keyProperties = $where;
             }
         }
         $rowCount = match ($action->action) {
