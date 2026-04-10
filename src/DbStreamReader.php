@@ -7,11 +7,13 @@ use Amp\Redis\Protocol\QueryException;
 use Amp\Redis\RedisClient;
 use Exception;
 use IMEdge\Async\Retry;
+use IMEdge\Node\Redis\ImedgeRedis;
 use Psr\Log\LoggerInterface;
 use Ramsey\Uuid\UuidInterface;
 use Revolt\EventLoop;
+use Throwable;
 
-use function Amp\Redis\createRedisClient;
+use function Amp\delay;
 
 final class DbStreamReader
 {
@@ -31,7 +33,7 @@ final class DbStreamReader
         protected readonly LoggerInterface $logger,
     ) {
         $this->logger->notice('Launching ' . self::NAME);
-        $this->redis = createRedisClient('unix://' . $redisSocket);
+        $this->redis = ImedgeRedis::client(self::NAME);
     }
 
     public function start(): void
@@ -46,10 +48,18 @@ final class DbStreamReader
             return;
         }
 
+        $this->initializeReadParams();
+        $succeeded = false;
+        while (!$succeeded) {
+            try {
+                $this->redis->ping();
+                $succeeded = true;
+            } catch (Throwable) {
+                delay(0.3);
+            }
+        }
+        $this->logger->notice(sprintf('%s is connected to %s', self::NAME, self::STORE_APP));
         Retry::forever(function () {
-            $this->redis->execute('CLIENT', 'SETNAME', self::NAME);
-            $this->initializeReadParams();
-            $this->logger->notice(sprintf('%s: %s is ready', self::NAME, self::STORE_APP));
             $this->readStreams();
         }, self::STORE_APP, 10, 1, 30, $this->logger);
     }
