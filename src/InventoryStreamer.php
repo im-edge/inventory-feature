@@ -104,6 +104,7 @@ class InventoryStreamer implements ImedgeWorker, DbBasedComponent
 
     public function initDb(PDO $db): void
     {
+        $this->hasDb = true;
         foreach ($this->nodesToRegister as $node) {
             try {
                 $this->loader->registerNode($node[0], $node[1]);

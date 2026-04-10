@@ -74,7 +74,7 @@ class SnmpFeatureLoader implements DbBasedComponent
     {
         $db = $this->db ?? throw new RuntimeException('DB is not ready');
         $binaryUuid = $uuid->getBytes();
-        $current = $db->fetchAll('SELECT uuid FROM datanode WHERE uuid = ?' . self::escapeBinary($binaryUuid));
+        $current = $db->fetchAll('SELECT uuid FROM datanode WHERE uuid = ' . self::escapeBinary($binaryUuid));
         if (empty($current)) {
             $db->insert('datanode', [
                 'uuid'  => $binaryUuid,
