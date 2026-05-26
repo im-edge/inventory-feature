@@ -23,7 +23,6 @@
     "ext-pdo": "*",
     "ext-posix": "*",
     "imedge/db-migration": ">=0.8",
-    "imedge/log": ">=0.7.1",
     "imedge/node-provided-libs": "^0.20-rc"
   },
   "require-dev": {
