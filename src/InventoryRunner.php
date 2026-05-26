@@ -23,11 +23,13 @@ class InventoryRunner
     protected bool $logActivities = true;
     protected ?WorkerInstance $streamer = null;
     protected SnmpApi $snmpApi;
+    public readonly ConnectionSubscriber $connectionSubscriber;
 
     public function __construct(
         public readonly Feature $feature,
         protected readonly LoggerInterface $logger,
     ) {
+        $this->connectionSubscriber = new ConnectionSubscriber($this, $this->feature->nodeIdentifier, $this->logger);
     }
 
     public function run(): void
@@ -71,6 +73,35 @@ class InventoryRunner
     #[ApiMethod]
     public function shipConfigForLocalFeatures(): bool
     {
+        return $this->shipLocalSnmpCredentials() && $this->shipLocalSnmpTargets();
+    }
+
+    // TODO: same for remote
+    #[ApiMethod]
+    public function shipConfigForConnectedPeers(): bool
+    {
+        foreach ($this->connectionSubscriber->getPeers() as $id => $connection) {
+            $uuid = Uuid::fromString($id);
+            $methods = (array)$connection->request('node.getAvailableMethods');
+
+            if (isset($methods['snmp.setCredentials'])) {
+                try {
+                    $connection->request('snmp.setCredentials', (object) [
+                        'credentials' => $this->fetchSnmpCredentials($uuid),
+                    ]);
+                    $connection->request('snmp.setKnownTargets', (object) [
+                        'targets' => $this->fetchSnmpTargets($uuid),
+                    ]);
+                } catch (\Exception $e) {
+                    $this->logger->error(sprintf(
+                        'Sending SNMP credentials to %s failed: %s',
+                        $id,
+                        $e->getMessage()
+                    ));
+                }
+            }
+        }
+
         return $this->shipLocalSnmpCredentials() && $this->shipLocalSnmpTargets();
     }
 

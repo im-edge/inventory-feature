@@ -20,6 +20,7 @@ use Throwable;
 
 class ConnectionSubscriber implements ConnectionSubscriberInterface
 {
+    /** @var JsonRpcConnection[] */
     protected array $gotPeers = [];
 
     public function __construct(
@@ -27,6 +28,14 @@ class ConnectionSubscriber implements ConnectionSubscriberInterface
         protected NodeIdentifier $nodeIdentifier,
         protected LoggerInterface $logger,
     ) {
+    }
+
+    /**
+     * @return JsonRpcConnection[]
+     */
+    public function getPeers(): array
+    {
+        return $this->gotPeers;
     }
 
     public function activateConnection(string $hexUuid, JsonRpcConnection $connection, RpcPeerType $peerType): void
