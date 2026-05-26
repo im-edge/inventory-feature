@@ -36,15 +36,15 @@ class InventoryStreamer implements ImedgeWorker, DbBasedComponent
     }
 
     #[ApiMethod]
-    public function fetchSnmpCredentials(): SnmpCredentials
+    public function fetchSnmpCredentials(UuidInterface $nodeUuid): SnmpCredentials
     {
-        return $this->loader->fetchCredentials($this->nodeIdentifier->uuid);
+        return $this->loader->fetchCredentials($nodeUuid);
     }
 
     #[ApiMethod]
-    public function fetchSnmpTargets(): SnmpTargets
+    public function fetchSnmpTargets(UuidInterface $uuid): SnmpTargets
     {
-        return $this->loader->fetchTargets($this->nodeIdentifier->uuid);
+        return $this->loader->fetchTargets($uuid);
     }
 
     #[ApiMethod]

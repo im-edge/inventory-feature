@@ -77,16 +77,17 @@ class InventoryRunner
     #[ApiMethod]
     public function shipLocalSnmpCredentials(): bool
     {
-        return $this->snmpApi->setCredentials($this->fetchSnmpCredentials());
+        return $this->snmpApi->setCredentials($this->fetchSnmpCredentials($this->feature->nodeIdentifier->uuid));
     }
 
     #[ApiMethod]
     public function shipLocalSnmpTargets(): bool
     {
-        return $this->snmpApi->setKnownTargets($this->fetchSnmpTargets());
+        return $this->snmpApi->setKnownTargets($this->fetchSnmpTargets($this->feature->nodeIdentifier->uuid));
     }
 
-    protected function fetchSnmpCredentials(): SnmpCredentials
+    #[ApiMethod]
+    public function fetchSnmpCredentials(UuidInterface $nodeUuid): SnmpCredentials
     {
         if ($this->streamer === null) {
             throw new RuntimeException('InventoryRunner has no inventoryStreamer');
@@ -94,18 +95,21 @@ class InventoryRunner
         // Why not:
         // return $this->streamer->jsonRpc->request('inventoryStreamer.fetchSnmpCredentials');
         return SnmpCredentials::fromSerialization(
-            $this->streamer->jsonRpc->request('inventoryStreamer.fetchSnmpCredentials')
+            $this->streamer->jsonRpc->request('inventoryStreamer.fetchSnmpCredentials', [$nodeUuid])
         );
     }
 
-    protected function fetchSnmpTargets(): SnmpTargets
+    #[ApiMethod]
+    public function fetchSnmpTargets(UuidInterface $nodeUuid): SnmpTargets
     {
         if ($this->streamer === null) {
             throw new RuntimeException('InventoryRunner has no inventoryStreamer');
         }
         // Why not:
         // return $this->streamer->jsonRpc->request('inventoryStreamer.fetchSnmpTargets');
-        return SnmpTargets::fromSerialization($this->streamer->jsonRpc->request('inventoryStreamer.fetchSnmpTargets'));
+        return SnmpTargets::fromSerialization(
+            $this->streamer->jsonRpc->request('inventoryStreamer.fetchSnmpTargets', [$nodeUuid])
+        );
     }
 
     protected function foundLocalSnmpApi(SnmpApi $api): void

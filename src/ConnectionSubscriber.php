@@ -31,8 +31,6 @@ class ConnectionSubscriber implements ConnectionSubscriberInterface
 
     public function activateConnection(string $hexUuid, JsonRpcConnection $connection, RpcPeerType $peerType): void
     {
-        // TODO: use RPC to fetch, disabled for beta tag
-        return;
         if (isset($this->gotPeers[$hexUuid])) {
             $this->logger->notice('Avoiding connection from being activated twice. This is a bug');
             return;
@@ -67,10 +65,12 @@ class ConnectionSubscriber implements ConnectionSubscriberInterface
             }
 
             if (isset($methods['snmp.setCredentials'])) {
-                $loader = new SnmpFeatureLoader($this->logger);
                 try {
                     $connection->request('snmp.setCredentials', (object) [
-                        'credentials' => $loader->fetchCredentials($uuid),
+                        'credentials' => $this->runner->fetchSnmpCredentials($uuid),
+                    ]);
+                    $connection->request('snmp.setKnownTargets', (object) [
+                        'targets' => $this->runner->fetchSnmpTargets($uuid),
                     ]);
                 } catch (Exception $e) {
                     $this->logger->error('Sending SNMP credentials failed: ' . $e->getMessage());
