@@ -13,6 +13,7 @@ use Ramsey\Uuid\UuidInterface;
 use Revolt\EventLoop;
 use Throwable;
 
+use function Amp\async;
 use function Amp\delay;
 
 final class DbStreamReader
@@ -47,26 +48,24 @@ final class DbStreamReader
         if ($this->stopping) {
             return;
         }
-
         $this->initializeReadParams();
         $succeeded = false;
         while (!$succeeded) {
             try {
                 $this->redis->ping();
                 $succeeded = true;
-            } catch (Throwable) {
+            } catch (Throwable $e) {
+                $this->logger->debug('DbStreamReader redis ping failed, trying again in 0.3s: ' . $e->getMessage());
                 delay(0.3);
             }
         }
         $this->logger->notice(sprintf('%s is connected to %s', self::NAME, self::STORE_APP));
-        Retry::forever(function () {
-            $this->readStreams();
-        }, self::STORE_APP, 10, 1, 30, $this->logger);
+        async(fn () => Retry::forever($this->readStreams(...), self::STORE_APP, 10, 1, 30, $this->logger));
     }
 
     protected function initializeReadParams(): void
     {
-        $blockMs = 15000;
+        $blockMs = 1500;
         $maxCount = 10000;
         $this->xReadParams = ['XREAD', 'COUNT', (string) $maxCount, 'BLOCK', (string) $blockMs, 'STREAMS'];
     }
